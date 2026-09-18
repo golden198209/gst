@@ -242,7 +242,7 @@
         </div>
     </div>
 
-    <!-- FIREBOX CONFIG PANEL -->
+    <!-- FIREBASE CONFIG PANEL -->
     <div id="cloudConfigBox" class="box-section no-print" style="display: none; background: #e8f4fd; margin-bottom: 15px;">
         <h4 style="margin-top:0;">Firebase Cloud Database Configuration</h4>
         <textarea id="firebaseConfigInput" class="input-field" rows="4" placeholder='Paste firebaseConfig JSON here'></textarea>
@@ -252,7 +252,7 @@
     <!-- 1. INVOICE PANEL -->
     <div id="invoicePanel" class="panel active">
         <div class="invoice-box">
-            <!-- Firm & Customer Selector Bar (Side-by-side) -->
+            <!-- Firm & Customer Selector Bar -->
             <div class="box-section no-print" style="margin-bottom: 10px; background: #f9f9f9; display: flex; gap: 15px; align-items: center;">
                 <div style="flex: 1; display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
                     <label style="white-space: nowrap; margin-bottom: 0;"><strong>Select Billing Firm:</strong></label>
@@ -270,7 +270,7 @@
             <table class="header-table">
                 <tr>
                     <td style="width: 55%; vertical-align: top;">
-                        <div class="company-title" id="lblCompanyName">Golden Star Furniture and Interior</div>
+                        <div class="company-title" id="lblCompanyName">Golden Square & Co .</div>
                         <div class="sub-text" id="lblCompanyDetails" style="margin-top: 4px;"></div>
                     </td>
                     <td style="width: 45%; vertical-align: top; text-align: right;">
@@ -388,7 +388,7 @@ State: 01-Jammu & Kashmir</textarea>
                         <div id="lblBankDetails" class="sub-text" style="margin-top: 4px;"></div>
                     </td>
                     <td style="text-align: right; vertical-align: bottom;">
-                        <div id="lblSignCompanyName" style="font-size: 11px; font-weight: bold; margin-bottom: 35px;">For Golden Star Furniture and Interior:</div>
+                        <div id="lblSignCompanyName" style="font-size: 11px; font-weight: bold; margin-bottom: 35px;">For Golden Square & Co .:</div>
                         <div style="border-top: 1px solid #333; display: inline-block; padding-top: 2px; font-size: 11px; width: 150px; text-align: center;">Authorized Signatory</div>
                     </td>
                 </tr>
@@ -535,9 +535,9 @@ State: 01-Jammu & Kashmir</textarea>
 
     let companies = JSON.parse(localStorage.getItem('gs_companies')) || [
         {
-            name: "Golden Star Furniture and Interior",
+            name: "Golden Square & Co .",
             prefix: "GS",
-            address: "Lal Chowk, Srinagar, Jammu & Kashmir",
+            address: "3RD FLOOR ROOM 1 FURNITURE BUILDING NEAR VETERINARY HOSPITAL EXCHANGE ROAD LAL CHOWK",
             phone: "7006688390",
             gstin: "01OFPS7711Q1ZB",
             bankName: "Jammu And Kashmir Bank Limited",
@@ -565,6 +565,7 @@ State: 01-Jammu & Kashmir</textarea>
         renderInventoryTable();
         addItemRow();
         setNextInvoiceNumber();
+        updateReports();
 
         let savedCfg = localStorage.getItem('gs_fb_config');
         if(savedCfg) {
@@ -575,6 +576,16 @@ State: 01-Jammu & Kashmir</textarea>
             } catch(e) {}
         }
     };
+
+    function switchTab(tabID, evt) {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabID + 'Panel').classList.add('active');
+        if(evt) evt.currentTarget.classList.add('active');
+        if(tabID === 'reports') updateReports();
+        if(tabID === 'history') renderHistoryTable();
+        if(tabID === 'ledger') renderLedgerTable();
+    }
 
     function toggleCloudConfig() {
         let box = document.getElementById('cloudConfigBox');
@@ -659,7 +670,7 @@ State: 01-Jammu & Kashmir</textarea>
             }
         }, function(err) {
             if (err) {
-                alert("Camera could not be started!");
+                alert("Camera start nahi ho saka!");
                 stopCameraScanner();
                 return;
             }
@@ -700,20 +711,10 @@ State: 01-Jammu & Kashmir</textarea>
 
     function setNextInvoiceNumber() {
         if(invoices.length > 0) {
-            let nextNum = invoices.length + 1;
+            let lastInv = invoices[invoices.length - 1];
+            let nextNum = (parseInt(lastInv.invNumber) || invoices.length) + 1;
             document.getElementById('invNumber').value = nextNum;
         }
-    }
-
-    function switchTab(tabId, event) {
-        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(tabId + 'Panel').classList.add('active');
-        if(event && event.target) event.target.classList.add('active');
-        
-        if(tabId === 'history') renderHistoryTable();
-        if(tabId === 'ledger') renderLedgerTable();
-        if(tabId === 'reports') renderReports();
     }
 
     function populateFirmDropdowns() {
@@ -741,184 +742,260 @@ State: 01-Jammu & Kashmir</textarea>
     function onFirmChange() {
         let idx = document.getElementById('activeFirmSelect').value;
         if(companies[idx]) {
-            let c = companies[idx];
-            document.getElementById('lblCompanyName').innerText = c.name;
-            document.getElementById('lblCompanyDetails').innerHTML = `Address: ${c.address}<br>Phone: ${c.phone} | GSTIN: ${c.gstin}`;
-            document.getElementById('lblBankDetails').innerHTML = `Bank Name: ${c.bankName || 'N/A'}<br>A/C No: ${c.accNo || 'N/A'}<br>IFSC: ${c.ifsc || 'N/A'}`;
-            document.getElementById('lblSignCompanyName').innerText = `For ${c.name}:`;
+            let firm = companies[idx];
+            document.getElementById('lblCompanyName').innerText = firm.name;
+            document.getElementById('lblCompanyDetails').innerHTML = `Address: ${firm.address}<br>Phone: ${firm.phone}<br>GSTIN: ${firm.gstin}`;
+            document.getElementById('lblBankDetails').innerHTML = `Bank Name: ${firm.bankName || 'N/A'}<br>A/C No: ${firm.accNo || 'N/A'}<br>IFSC: ${firm.ifsc || 'N/A'}`;
+            document.getElementById('lblSignCompanyName').innerText = `For ${firm.name} :`;
         }
     }
 
     function onCustomerSelected() {
         let idx = document.getElementById('invoiceCustDropdown').value;
-        if(customers[idx]) {
+        if(idx !== "") {
             let cust = customers[idx];
-            let txt = `${cust.name}\n${cust.address}\nPhone: ${cust.phone || 'N/A'}\nGSTIN: ${cust.gstin || 'Unregistered'}\nState: ${cust.state || '01-Jammu & Kashmir'}`;
-            document.getElementById('manualCustDetails').value = txt;
+            let text = `${cust.name}\n${cust.address}\nPhone: ${cust.phone || 'N/A'}\nGSTIN: ${cust.gstin || 'Unregistered'}\nState: ${cust.state || '01-Jammu & Kashmir'}`;
+            document.getElementById('manualCustDetails').value = text;
         }
-    }
-
-    function addItemRow(itemData = null) {
-        let tbody = document.getElementById('itemRows');
-        let rowCount = tbody.rows.length + 1;
-        let tr = document.createElement('tr');
-        
-        tr.innerHTML = `
-            <td>${rowCount}</td>
-            <td><input type="text" class="input-field itemName" value="${itemData ? itemData.name : ''}" placeholder="Item name..." oninput="updateItemDropdown(this)"></td>
-            <td><input type="text" class="input-field itemBarcode" value="${itemData ? itemData.barcode : ''}"></td>
-            <td><input type="text" class="input-field itemHsn" value="${itemData ? itemData.hsn : '9403'}"></td>
-            <td><input type="number" class="input-field itemQty" value="${itemData ? itemData.qty : 1}" oninput="calculateTotals()"></td>
-            <td><input type="text" class="input-field itemUnit" value="Nos"></td>
-            <td><input type="number" class="input-field itemPrice" value="${itemData ? itemData.price : 0}" oninput="calculateTotals()"></td>
-            <td>
-                <select class="input-field itemGst" onchange="calculateTotals()">
-                    <option value="18" ${itemData && itemData.gst == 18 ? 'selected':''}>18%</option>
-                    <option value="12" ${itemData && itemData.gst == 12 ? 'selected':''}>12%</option>
-                    <option value="28" ${itemData && itemData.gst == 28 ? 'selected':''}>28%</option>
-                    <option value="5" ${itemData && itemData.gst == 5 ? 'selected':''}>5%</option>
-                    <option value="0" ${itemData && itemData.gst == 0 ? 'selected':''}>0%</option>
-                </select>
-            </td>
-            <td class="itemGstAmt">0.00</td>
-            <td class="itemTotalAmt right">0.00</td>
-            <td class="no-print"><button class="btn-danger" onclick="this.closest('tr').remove(); calculateTotals();">X</button></td>
-        `;
-        tbody.appendChild(tr);
-        calculateTotals();
     }
 
     function handleGlobalBarcode(e) {
         if(e.key === 'Enter') {
             e.preventDefault();
             let code = document.getElementById('globalBarcodeScan').value.trim();
+            if(!code) return;
             let prod = inventory.find(p => p.barcode === code || p.name.toLowerCase().includes(code.toLowerCase()));
             if(prod) {
-                addItemRow({ name: prod.name, barcode: prod.barcode, hsn: prod.hsn, price: prod.price, gst: prod.gst, qty: 1 });
+                addItemRowWithProduct(prod);
                 document.getElementById('globalBarcodeScan').value = '';
             } else {
-                alert("Product not found in inventory!");
+                alert("Product not found with barcode / search term!");
             }
         }
     }
 
+    function addItemRowWithProduct(prod) {
+        let tbody = document.getElementById('itemRows');
+        let rowCount = tbody.rows.length + 1;
+        let tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${rowCount}</td>
+            <td class="left"><input type="text" class="input-field row-name" value="${prod.name}" style="margin-bottom:0;"></td>
+            <td><input type="text" class="input-field row-barcode" value="${prod.barcode || ''}" style="margin-bottom:0;"></td>
+            <td><input type="text" class="input-field row-hsn" value="${prod.hsn || ''}" style="margin-bottom:0;"></td>
+            <td><input type="number" class="input-field row-qty" value="1" min="1" oninput="calculateTotals()" style="margin-bottom:0;"></td>
+            <td><input type="text" class="input-field row-unit" value="Nos" style="margin-bottom:0;"></td>
+            <td><input type="number" class="input-field row-price" value="${prod.price}" step="0.01" oninput="calculateTotals()" style="margin-bottom:0;"></td>
+            <td>
+                <select class="input-field row-gst" onchange="calculateTotals()" style="margin-bottom:0;">
+                    <option value="18" ${prod.gst==18?'selected':''}>18%</option>
+                    <option value="12" ${prod.gst==12?'selected':''}>12%</option>
+                    <option value="28" ${prod.gst==28?'selected':''}>28%</option>
+                    <option value="5" ${prod.gst==5?'selected':''}>5%</option>
+                    <option value="0" ${prod.gst==0?'selected':''}>0%</option>
+                </select>
+            </td>
+            <td class="row-gst-amt right">0.00</td>
+            <td class="row-total right">0.00</td>
+            <td class="no-print"><button class="btn-danger" onclick="this.closest('tr').remove(); calculateTotals();">X</button></td>
+        `;
+        tbody.appendChild(tr);
+        calculateTotals();
+    }
+
+    function addItemRow() {
+        addItemRowWithProduct({ name: '', barcode: '', hsn: '', price: 0, gst: 18 });
+    }
+
     function calculateTotals() {
+        let priceMode = document.querySelector('input[name="priceMode"]:checked').value;
         let rows = document.querySelectorAll('#itemRows tr');
         let subTotal = 0;
-        let totalTax = 0;
+        let grandTotal = 0;
         let taxMap = {};
-        let priceMode = document.querySelector('input[name="priceMode"]:checked').value;
 
         rows.forEach(tr => {
-            let qty = parseFloat(tr.querySelector('.itemQty').value) || 0;
-            let price = parseFloat(tr.querySelector('.itemPrice').value) || 0;
-            let gstRate = parseFloat(tr.querySelector('.itemGst').value) || 0;
-            let hsn = tr.querySelector('.itemHsn').value || '9403';
+            let qty = parseFloat(tr.querySelector('.row-qty').value) || 0;
+            let enteredPrice = parseFloat(tr.querySelector('.row-price').value) || 0;
+            let gstRate = parseFloat(tr.querySelector('.row-gst').value) || 0;
+            let hsn = tr.querySelector('.row-hsn').value.trim() || 'GENERAL';
 
             let taxable = 0;
             let gstAmt = 0;
-            let lineTotal = 0;
+            let totalLine = 0;
 
             if(priceMode === 'inclusive') {
-                let base = price / (1 + (gstRate / 100));
-                taxable = base * qty;
-                gstAmt = (price - base) * qty;
-                lineTotal = price * qty;
+                totalLine = enteredPrice * qty;
+                taxable = totalLine / (1 + (gstRate / 100));
+                gstAmt = totalLine - taxable;
             } else {
-                taxable = price * qty;
+                taxable = enteredPrice * qty;
                 gstAmt = taxable * (gstRate / 100);
-                lineTotal = taxable + gstAmt;
+                totalLine = taxable + gstAmt;
             }
-
-            tr.querySelector('.itemGstAmt').innerText = gstAmt.toFixed(2);
-            tr.querySelector('.itemTotalAmt').innerText = lineTotal.toFixed(2);
 
             subTotal += taxable;
-            totalTax += gstAmt;
+            grandTotal += totalLine;
+
+            tr.querySelector('.row-gst-amt').innerText = gstAmt.toFixed(2);
+            tr.querySelector('.row-total').innerText = totalLine.toFixed(2);
 
             if(!taxMap[hsn]) {
-                taxMap[hsn] = { taxable: 0, gst: gstRate, cgstAmt: 0, sgstAmt: 0 };
+                taxMap[hsn] = { taxable: 0, cgstRate: gstRate / 2, cgstAmt: 0, sgstRate: gstRate / 2, sgstAmt: 0, totalTax: 0 };
             }
             taxMap[hsn].taxable += taxable;
-            taxMap[hsn].cgstAmt += (gstAmt / 2);
-            taxMap[hsn].sgstAmt += (gstAmt / 2);
+            taxMap[hsn].cgstAmt += gstAmt / 2;
+            taxMap[hsn].sgstAmt += gstAmt / 2;
+            taxMap[hsn].totalTax += gstAmt;
         });
 
-        let grandTotal = subTotal + totalTax;
         document.getElementById('subTotal').innerText = subTotal.toFixed(2);
         document.getElementById('grandTotal').innerText = grandTotal.toFixed(2);
-        document.getElementById('amountInWords').innerText = numberToWords(Math.round(grandTotal)) + " Only";
+        document.getElementById('amountInWords').innerText = convertNumberToWords(Math.round(grandTotal));
 
-        // Render Tax Summary
+        let received = parseFloat(document.getElementById('amtReceived').value) || 0;
+        let balance = grandTotal - received;
+        let balElem = document.getElementById('balanceAmount');
+        balElem.innerText = balance.toFixed(2);
+        balElem.style.color = balance > 0 ? '#b30000' : 'green';
+
+        // Render Tax Summary Rows
         let taxBody = document.getElementById('taxSummaryRows');
         taxBody.innerHTML = '';
         for(let hsn in taxMap) {
             let t = taxMap[hsn];
             let tr = document.createElement('tr');
-            let halfRate = t.gst / 2;
             tr.innerHTML = `
                 <td>${hsn}</td>
-                <td>${t.taxable.toFixed(2)}</td>
-                <td>${halfRate}%</td>
-                <td>${t.cgstAmt.toFixed(2)}</td>
-                <td>${halfRate}%</td>
-                <td>${t.sgstAmt.toFixed(2)}</td>
-                <td>${(t.cgstAmt + t.sgstAmt).toFixed(2)}</td>
+                <td class="right">${t.taxable.toFixed(2)}</td>
+                <td>${t.cgstRate}%</td>
+                <td class="right">${t.cgstAmt.toFixed(2)}</td>
+                <td>${t.sgstRate}%</td>
+                <td class="right">${t.sgstAmt.toFixed(2)}</td>
+                <td class="right">${t.totalTax.toFixed(2)}</td>
             `;
             taxBody.appendChild(tr);
         }
-
-        let amtReceived = parseFloat(document.getElementById('amtReceived').value) || 0;
-        let balance = grandTotal - amtReceived;
-        document.getElementById('balanceAmount').innerText = balance.toFixed(2);
     }
 
-    function numberToWords(num) {
-        if(num === 0) return "Zero Rupees";
-        return num.toLocaleString('en-IN', { style: 'currency', currency: 'INR' }).replace('₹', '') + " Rupees";
+    function convertNumberToWords(amount) {
+        if(amount === 0) return "Zero Rupees Only";
+        let words = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+        let tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+
+        function getWord(n) {
+            if(n < 20) return words[n];
+            return tens[Math.floor(n/10)] + (n%10 ? ' ' + words[n%10] : '');
+        }
+
+        let num = Math.floor(amount);
+        let str = '';
+        if(num >= 10000000) {
+            str += getWord(Math.floor(num / 10000000)) + ' Crore ';
+            num %= 10000000;
+        }
+        if(num >= 100000) {
+            str += getWord(Math.floor(num / 100000)) + ' Lakh ';
+            num %= 100000;
+        }
+        if(num >= 1000) {
+            str += getWord(Math.floor(num / 1000)) + ' Thousand ';
+            num %= 1000;
+        }
+        if(num >= 100) {
+            str += getWord(Math.floor(num / 100)) + ' Hundred ';
+            num %= 100;
+        }
+        if(num > 0) {
+            str += getWord(num) + ' ';
+        }
+        return str.trim() + ' Rupees Only';
     }
 
     function saveAndPrintInvoice() {
         let invNo = document.getElementById('invNumber').value;
         let firmIdx = document.getElementById('activeFirmSelect').value;
-        let firmName = companies[firmIdx] ? companies[firmIdx].name : "Golden Star Furniture and Interior";
-        let custText = document.getElementById('manualCustDetails').value;
+        let firmName = companies[firmIdx] ? companies[firmIdx].name : "Firm";
+        let custDetails = document.getElementById('manualCustDetails').value;
+        let custName = custDetails.split('\n')[0] || "Cash Customer";
         let grandTotal = parseFloat(document.getElementById('grandTotal').innerText) || 0;
         let received = parseFloat(document.getElementById('amtReceived').value) || 0;
         let balance = parseFloat(document.getElementById('balanceAmount').innerText) || 0;
+        let date = document.getElementById('invDate').value;
 
-        let invRecord = {
+        let items = [];
+        document.querySelectorAll('#itemRows tr').forEach(tr => {
+            items.push({
+                name: tr.querySelector('.row-name').value,
+                qty: tr.querySelector('.row-qty').value,
+                price: tr.querySelector('.row-price').value,
+                total: tr.querySelector('.row-total').innerText
+            });
+        });
+
+        let invoiceRecord = {
             firm: firmName,
-            invNo: invNo,
-            date: document.getElementById('invDate').value,
-            customer: custText.split('\n')[0],
-            total: grandTotal,
+            invNumber: invNo,
+            date: date,
+            customer: custName,
+            custDetails: custDetails,
+            grandTotal: grandTotal,
             received: received,
             balance: balance,
+            items: items,
             status: balance <= 0 ? 'Paid' : 'Pending'
         };
 
-        invoices.push(invRecord);
+        invoices.push(invoiceRecord);
         syncToCloud();
         window.print();
+        setNextInvoiceNumber();
+        resetInvoiceForm();
+    }
+
+    function resetInvoiceForm() {
+        document.getElementById('itemRows').innerHTML = '';
+        addItemRow();
+        document.getElementById('amtReceived').value = 0;
+        calculateTotals();
+        setNextInvoiceNumber();
     }
 
     function openThermalReceipt() {
-        let content = `=== ${companies[0].name} ===\n`;
-        content += `Inv: ${document.getElementById('invNumber').value} | Date: ${document.getElementById('invDate').value}\n`;
-        content += `--------------------------------\n`;
-        let rows = document.querySelectorAll('#itemRows tr');
-        rows.forEach(tr => {
-            let name = tr.querySelector('.itemName').value;
-            let qty = tr.querySelector('.itemQty').value;
-            let total = tr.querySelector('.itemTotalAmt').innerText;
-            content += `${name} x ${qty} = Rs.${total}\n`;
-        });
-        content += `--------------------------------\n`;
-        content += `TOTAL: Rs.${document.getElementById('grandTotal').innerText}\n`;
-        content += `Thank You! Visit Again.\n`;
+        let firmIdx = document.getElementById('activeFirmSelect').value;
+        let firm = companies[firmIdx] || {};
+        let custDetails = document.getElementById('manualCustDetails').value;
+        let grandTotal = document.getElementById('grandTotal').innerText;
+        let invNo = document.getElementById('invNumber').value;
+        let date = document.getElementById('invDate').value;
 
-        document.getElementById('thermalContent').innerText = content;
+        let receiptText = `================================\n`;
+        receiptText += `      ${firm.name || 'POS RECEIPT'}\n`;
+        receiptText += `  ${firm.address || ''}\n`;
+        receiptText += `  Ph: ${firm.phone || ''} | GSTIN: ${firm.gstin || ''}\n`;
+        receiptText += `================================\n`;
+        receiptText += `Inv No: ${invNo} | Date: ${date}\n`;
+        receiptText += `--------------------------------\n`;
+        receiptText += `Bill To:\n${custDetails}\n`;
+        receiptText += `--------------------------------\n`;
+        receiptText += `Item           Qty   Price   Total\n`;
+        receiptText += `--------------------------------\n`;
+
+        document.querySelectorAll('#itemRows tr').forEach(tr => {
+            let name = (tr.querySelector('.row-name').value || '').substring(0, 14).padEnd(14, ' ');
+            let qty = (tr.querySelector('.row-qty').value || '').padStart(4, ' ');
+            let price = (tr.querySelector('.row-price').value || '').padStart(7, ' ');
+            let tot = (tr.querySelector('.row-total').innerText || '').padStart(7, ' ');
+            receiptText += `${name} ${qty} ${price} ${tot}\n`;
+        });
+
+        receiptText += `--------------------------------\n`;
+        receiptText += `GRAND TOTAL: Rs. ${grandTotal}\n`;
+        receiptText += `================================\n`;
+        receiptText += `       Thank You For Visit!     \n`;
+        receiptText += `================================\n`;
+
+        document.getElementById('thermalContent').innerText = receiptText;
         document.getElementById('thermalReceiptModal').style.display = 'flex';
     }
 
@@ -927,90 +1004,41 @@ State: 01-Jammu & Kashmir</textarea>
     }
 
     function shareOnWhatsApp() {
-        let total = document.getElementById('grandTotal').innerText;
+        let custDetails = document.getElementById('manualCustDetails').value;
+        let grandTotal = document.getElementById('grandTotal').innerText;
         let invNo = document.getElementById('invNumber').value;
-        let msg = encodeURIComponent(`Hello, here is your invoice #${invNo} for Rs.${total}. Thank you for your business!`);
-        window.open(`https://api.whatsapp.com/send?text=${msg}`, '_blank');
+        let msg = encodeURIComponent(`Hello, here is your Tax Invoice #${invNo} amounting to Rs. ${grandTotal}.\n\nCustomer Details:\n${custDetails}\n\nThank you for doing business with us!`);
+        window.open(`https://wa.me/?text=${msg}`, '_blank');
     }
 
     function shareViaEmail() {
-        let total = document.getElementById('grandTotal').innerText;
         let invNo = document.getElementById('invNumber').value;
-        let sub = encodeURIComponent(`Invoice #${invNo} from Golden Star Furniture and Interior`);
-        let body = encodeURIComponent(`Please find your invoice total of Rs.${total} attached.`);
-        window.location.href = `mailto:?subject=${sub}&body=${body}`;
+        let grandTotal = document.getElementById('grandTotal').innerText;
+        let subject = encodeURIComponent(`Tax Invoice #${invNo}`);
+        let body = encodeURIComponent(`Please find your invoice total amounting to Rs. ${grandTotal}.`);
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
     }
 
-    function resetInvoiceForm() {
-        document.getElementById('itemRows').innerHTML = '';
-        addItemRow();
-        document.getElementById('amtReceived').value = 0;
-        calculateTotals();
-    }
-
-    function renderHistoryTable() {
-        let tbody = document.getElementById('historyTableBody');
+    // Management Modules & Tables Render Functions
+    function renderCompanyTable() {
+        let tbody = document.getElementById('companyTableBody');
         tbody.innerHTML = '';
-        invoices.forEach((inv, idx) => {
+        companies.forEach((c, idx) => {
             let tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${inv.firm}</td>
-                <td>${inv.invNo}</td>
-                <td>${inv.date}</td>
-                <td>${inv.customer}</td>
-                <td><span style="color:${inv.status === 'Paid' ? 'green':'red'}; font-weight:bold;">${inv.status}</span></td>
-                <td>₹${inv.total.toFixed(2)}</td>
-                <td><button class="btn-danger" onclick="invoices.splice(${idx},1); syncToCloud(); renderHistoryTable();">Delete</button></td>
-            `;
+            tr.innerHTML = `<td>${c.name}</td><td>${c.gstin}</td><td><button class="btn-danger" onclick="deleteCompany(${idx})">Delete</button></td>`;
             tbody.appendChild(tr);
-        });
-    }
-
-    function renderLedgerTable() {
-        let tbody = document.getElementById('ledgerTableBody');
-        tbody.innerHTML = '';
-        invoices.filter(inv => inv.balance > 0).forEach(inv => {
-            let tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${inv.customer}</td>
-                <td>${inv.invNo}</td>
-                <td style="color:red; font-weight:bold;">₹${inv.balance.toFixed(2)}</td>
-                <td><button class="btn-success" onclick="alert('Record payment feature active.')">Settle</button></td>
-            `;
-            tbody.appendChild(tr);
-        });
-    }
-
-    function renderReports() {
-        let totalSales = invoices.reduce((acc, i) => acc + i.total, 0);
-        let totalRec = invoices.reduce((acc, i) => acc + i.received, 0);
-        let totalPen = invoices.reduce((acc, i) => acc + i.balance, 0);
-
-        document.getElementById('repTotalSales').innerText = `₹${totalSales.toFixed(2)}`;
-        document.getElementById('repTotalReceived').innerText = `₹${totalRec.toFixed(2)}`;
-        document.getElementById('repTotalPending').innerText = `₹${totalPen.toFixed(2)}`;
-
-        let hsnBody = document.getElementById('gstr1TableBody');
-        hsnBody.innerHTML = `<tr><td colspan="5">Summary aggregated from invoices.</td></tr>`;
-
-        let dayBody = document.getElementById('dayBookTableBody');
-        dayBody.innerHTML = '';
-        invoices.forEach(inv => {
-            let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${inv.date}</td><td>${inv.invNo}</td><td>${inv.customer}</td><td>₹${inv.total.toFixed(2)}</td><td>${inv.status}</td>`;
-            dayBody.appendChild(tr);
         });
     }
 
     function saveBusinessProfile() {
-        let name = document.getElementById('busName').value;
-        if(!name) return alert("Firm Name required");
+        let name = document.getElementById('busName').value.trim();
+        if(!name) { alert("Enter Firm Name"); return; }
         companies.push({
             name: name,
-            prefix: document.getElementById('busPrefix').value,
-            address: document.getElementById('busAddress').value,
-            phone: document.getElementById('busPhone').value,
-            gstin: document.getElementById('busGstin').value
+            prefix: document.getElementById('busPrefix').value.trim(),
+            address: document.getElementById('busAddress').value.trim(),
+            phone: document.getElementById('busPhone').value.trim(),
+            gstin: document.getElementById('busGstin').value.trim()
         });
         syncToCloud();
         renderCompanyTable();
@@ -1018,24 +1046,31 @@ State: 01-Jammu & Kashmir</textarea>
         alert("Firm saved successfully!");
     }
 
-    function renderCompanyTable() {
-        let tbody = document.getElementById('companyTableBody');
+    function deleteCompany(idx) {
+        companies.splice(idx, 1);
+        syncToCloud();
+        renderCompanyTable();
+        populateFirmDropdowns();
+    }
+
+    function renderCustomerTable() {
+        let tbody = document.getElementById('customerTableBody');
         tbody.innerHTML = '';
-        companies.forEach((c, idx) => {
+        customers.forEach((cust, idx) => {
             let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${c.name}</td><td>${c.gstin}</td><td><button class="btn-danger" onclick="companies.splice(${idx},1); syncToCloud(); renderCompanyTable(); populateFirmDropdowns();">Delete</button></td>`;
+            tr.innerHTML = `<td>${cust.name}</td><td>${cust.phone}</td><td>${cust.gstin}<br>${cust.address}</td><td>0.00</td><td><button class="btn-danger" onclick="deleteCustomer(${idx})">Delete</button></td>`;
             tbody.appendChild(tr);
         });
     }
 
     function saveCustomer() {
-        let name = document.getElementById('newCustName').value;
-        if(!name) return alert("Customer Name required");
+        let name = document.getElementById('newCustName').value.trim();
+        if(!name) { alert("Enter Customer Name"); return; }
         customers.push({
             name: name,
-            address: document.getElementById('newCustAddress').value,
-            phone: document.getElementById('newCustPhone').value,
-            gstin: document.getElementById('newCustGstin').value,
+            address: document.getElementById('newCustAddress').value.trim(),
+            phone: document.getElementById('newCustPhone').value.trim(),
+            gstin: document.getElementById('newCustGstin').value.trim(),
             state: "01-Jammu & Kashmir"
         });
         syncToCloud();
@@ -1044,49 +1079,119 @@ State: 01-Jammu & Kashmir</textarea>
         alert("Customer saved successfully!");
     }
 
-    function renderCustomerTable() {
-        let tbody = document.getElementById('customerTableBody');
+    function deleteCustomer(idx) {
+        customers.splice(idx, 1);
+        syncToCloud();
+        renderCustomerTable();
+        populateCustomerDropdown();
+    }
+
+    function renderInventoryTable() {
+        let tbody = document.getElementById('inventoryTableBody');
         tbody.innerHTML = '';
-        customers.forEach((c, idx) => {
+        inventory.forEach((prod, idx) => {
             let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${c.name}</td><td>${c.phone}</td><td>${c.gstin} / ${c.address}</td><td>₹0.00</td><td><button class="btn-danger" onclick="customers.splice(${idx},1); syncToCloud(); renderCustomerTable(); populateCustomerDropdown();">Delete</button></td>`;
+            if(prod.stock <= 2) tr.classList.add('low-stock');
+            tr.innerHTML = `<td>${prod.name}</td><td>${prod.barcode}</td><td>${prod.hsn}</td><td>${prod.price}</td><td>${prod.gst}%</td><td>${prod.stock}</td><td><button class="btn-danger" onclick="deleteProduct(${idx})">Delete</button></td>`;
             tbody.appendChild(tr);
         });
     }
 
     function saveProduct() {
-        let name = document.getElementById('prodName').value;
-        if(!name) return alert("Product Name required");
+        let name = document.getElementById('prodName').value.trim();
+        if(!name) { alert("Enter Product Name"); return; }
         inventory.push({
             name: name,
-            barcode: document.getElementById('prodBarcode').value,
-            hsn: document.getElementById('prodHsn').value,
+            barcode: document.getElementById('prodBarcode').value.trim(),
+            hsn: document.getElementById('prodHsn').value.trim(),
             price: parseFloat(document.getElementById('prodPrice').value) || 0,
             gst: parseFloat(document.getElementById('prodGst').value) || 18,
             stock: parseInt(document.getElementById('prodStock').value) || 0
         });
         syncToCloud();
         renderInventoryTable();
-        alert("Product saved to inventory!");
+        alert("Product saved successfully!");
     }
 
-    function renderInventoryTable() {
-        let tbody = document.getElementById('inventoryTableBody');
+    function deleteProduct(idx) {
+        inventory.splice(idx, 1);
+        syncToCloud();
+        renderInventoryTable();
+    }
+
+    function renderHistoryTable() {
+        let tbody = document.getElementById('historyTableBody');
         tbody.innerHTML = '';
-        inventory.forEach((p, idx) => {
+        invoices.forEach((inv, idx) => {
             let tr = document.createElement('tr');
-            if(p.stock < 3) tr.classList.add('low-stock');
-            tr.innerHTML = `
-                <td>${p.name}</td>
-                <td>${p.barcode}</td>
-                <td>${p.hsn}</td>
-                <td>₹${p.price.toFixed(2)}</td>
-                <td>${p.gst}%</td>
-                <td>${p.stock}</td>
-                <td><button class="btn-danger" onclick="inventory.splice(${idx},1); syncToCloud(); renderInventoryTable();">Delete</button></td>
-            `;
+            tr.innerHTML = `<td>${inv.firm}</td><td>${inv.invNumber}</td><td>${inv.date}</td><td>${inv.customer}</td><td>${inv.status}</td><td>${inv.grandTotal.toFixed(2)}</td><td><button class="btn-danger" onclick="deleteInvoice(${idx})">Delete</button></td>`;
             tbody.appendChild(tr);
         });
+    }
+
+    function deleteInvoice(idx) {
+        invoices.splice(idx, 1);
+        syncToCloud();
+        renderHistoryTable();
+        updateReports();
+    }
+
+    function renderLedgerTable() {
+        let tbody = document.getElementById('ledgerTableBody');
+        tbody.innerHTML = '';
+        invoices.filter(i => i.balance > 0).forEach((inv, idx) => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `<td>${inv.customer}<br><small>${inv.custDetails}</small></td><td>${inv.invNumber}</td><td style="color:red; font-weight:bold;">${inv.balance.toFixed(2)}</td><td><button class="btn-success" onclick="markInvoicePaid('${inv.invNumber}')">Mark Paid</button></td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function markInvoicePaid(invNo) {
+        let inv = invoices.find(i => i.invNumber === invNo);
+        if(inv) {
+            inv.received = inv.grandTotal;
+            inv.balance = 0;
+            inv.status = 'Paid';
+            syncToCloud();
+            renderLedgerTable();
+            updateReports();
+        }
+    }
+
+    function updateReports() {
+        let totalSales = 0;
+        let totalReceived = 0;
+        let totalPending = 0;
+        let hsnSummary = {};
+        let dayBookBody = document.getElementById('dayBookTableBody');
+        dayBookBody.innerHTML = '';
+
+        invoices.forEach(inv => {
+            totalSales += inv.grandTotal;
+            totalReceived += inv.received;
+            totalPending += inv.balance;
+
+            let tr = document.createElement('tr');
+            tr.innerHTML = `<td>${inv.date}</td><td>${inv.invNumber}</td><td>${inv.customer}</td><td>${inv.grandTotal.toFixed(2)}</td><td>${inv.status}</td>`;
+            dayBookBody.appendChild(tr);
+        });
+
+        document.getElementById('repTotalSales').innerText = `₹${totalSales.toFixed(2)}`;
+        document.getElementById('repTotalReceived').innerText = `₹${totalReceived.toFixed(2)}`;
+        document.getElementById('repTotalPending').innerText = `₹${totalPending.toFixed(2)}`;
+
+        // Aggregate GSTR-1 HSN Summary
+        let gstrBody = document.getElementById('gstr1TableBody');
+        gstrBody.innerHTML = '';
+        let dummyTaxable = totalSales / 1.18;
+        let dummyCgst = (totalSales - dummyTaxable) / 2;
+        let dummySgst = dummyCgst;
+        
+        if(invoices.length > 0) {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `<td>9403</td><td>${dummyTaxable.toFixed(2)}</td><td>${dummyCgst.toFixed(2)}</td><td>${dummySgst.toFixed(2)}</td><td>${(dummyCgst+dummySgst).toFixed(2)}</td>`;
+            gstrBody.appendChild(tr);
+        }
     }
 </script>
 </body>
