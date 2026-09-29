@@ -1,143 +1,1614 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <h1>TEST VERSION 123</h1>
-</head>
-<body>
-    <h1>TEST VERSION 123</h1>
-    <!DOCTYPE html>
-<html lang="en">
-<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloud POS System</title>
-    <!-- Tailwind CSS for styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Golden Star PCOS & Billing System</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <!-- QuaggaJS for Barcode Scanning -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 10px; background: #f4f6f9; color: #333; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 10px 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 10px; }
+        .nav-tabs { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
+        .tab-btn { padding: 8px 12px; background: #e0e0e0; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 13px; }
+        .tab-btn.active { background: #007bff; color: white; }
+        .panel { display: none; background: #fff; padding: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .panel.active { display: block; }
+        .input-field, select, textarea { width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn-success { background: #28a745; color: white; border: none; padding: 8px 12px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .btn-danger { background: #dc3545; color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; }
+        .btn-warning { background: #ffc107; color: black; border: none; padding: 8px 12px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .items-table th, .items-table td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 13px; }
+        .items-table th { background: #f8f9fa; }
+        .items-table td.left { text-align: left; }
+        .items-table td.right { text-align: right; }
+        .box-section { border: 1px solid #ddd; padding: 10px; border-radius: 5px; margin-bottom: 10px; background: #fafafa; }
+        #scannerModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 2000; }
+        .viewport canvas { width: 100%; height: auto; }
+        .low-stock { background-color: #ffe6e6 !important; }
+        .stat-card { background: #f8f9fa; border: 1px solid #ddd; padding: 10px; border-radius: 5px; flex: 1; min-width: 150px; text-align: center; }
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; padding: 0; }
+            .panel { box-shadow: none; padding: 0; }
+            #quotationPrintModal { position: absolute; top: 0; left: 0; width: 100%; height: auto; background: white; }
+            #quotationPrintModal > div { width: 100% !important; max-height: none !important; box-shadow: none !important; padding: 0 !important; }
+        }
+    </style>
 </head>
-<body class="bg-gray-100 font-sans">
+<body>
 
-    <div class="container mx-auto p-6">
-        <header class="bg-white shadow-md rounded-lg p-4 mb-6 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-gray-800">Golden Star POS (Cloud Enabled)</h1>
-            <span id="connection-status" class="px-3 py-1 text-sm bg-yellow-100 text-yellow-800 rounded-full">Connecting to Cloud...</span>
-        </header>
+<div class="header no-print">
+    <div>
+        <h2 style="margin:0;">Golden Star POS</h2>
+        <span id="syncStatus" style="font-size:12px; color:gray;">💾 Local Mode</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <!-- Mobile number daalne ka box -->
+        <input type="text" id="wa-recipient" placeholder="Customer Mobile (91...)" style="padding: 6px; font-size: 13px; width: 160px; border: 1px solid #ccc; border-radius: 4px;" />
+        <!-- WhatsApp Send Button -->
+        <button onclick="sendBillToWhatsApp()" style="background: #25D366; color: white; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;">💬 Send WhatsApp</button>
+        <button id="cloudConfigToggleBtn" class="tab-btn" style="background:#6c757d; color:white;">☁️ Cloud Config</button>
+    </div>
+</div>
 
-        <!-- Main POS Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <!-- Products Section -->
-            <div class="md:col-span-2 bg-white p-4 rounded-lg shadow-md">
-                <h2 class="text-lg font-semibold mb-4 text-gray-700">Products / Items</h2>
-                <div id="product-list" class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    <!-- Sample Product Button -->
-                    <button onclick="addToCart('Wooden Center Table', 4500)" class="p-4 border rounded-lg hover:bg-indigo-50 text-left transition">
-                        <p class="font-medium text-gray-800">Wooden Center Table</p>
-                        <p class="text-indigo-600 font-bold mt-1">₹4,500</p>
-                    </button>
-                    <button onclick="addToCart('Mango Wood Organizer', 1200)" class="p-4 border rounded-lg hover:bg-indigo-50 text-left transition">
-                        <p class="font-medium text-gray-800">Mango Wood Organizer</p>
-                        <p class="text-indigo-600 font-bold mt-1">₹1,200</p>
-                    </button>
+<!-- Cloud Config Box -->
+<div id="cloudConfigBox" class="no-print box-section" style="display:none;">
+    <h4>Firebase Cloud Configuration (JSON)</h4>
+    <textarea id="firebaseConfigInput" class="input-field" rows="4" placeholder="Paste Firebase config JSON here..."></textarea>
+    <button id="saveFirebaseConfigBtn" class="btn-success">Connect & Sync</button>
+</div>
+
+<div class="nav-tabs no-print">
+    <button class="tab-btn active" data-tab="invoice">Create Invoice</button>
+    <button class="tab-btn" data-tab="history">Invoice History</button>
+    <button class="tab-btn" data-tab="quotation">Quotations</button>
+    <button class="tab-btn" data-tab="ledger">Pending Payments (Udhaar)</button>
+    <button class="tab-btn" data-tab="reports">📊 Reports & GSTR-1</button>
+    <button class="tab-btn" data-tab="business">Manage Firms</button>
+    <button class="tab-btn" data-tab="customers">Customers & Ledger</button>
+    <button class="tab-btn" data-tab="inventory">Stock & Barcode</button>
+</div>
+
+<!-- 1. INVOICE PANEL -->
+<div id="invoicePanel" class="panel active">
+    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <div style="flex: 2; min-width: 300px;">
+            <div class="box-section no-print">
+                <label><b>Select Billing Firm:</b></label>
+                <select id="activeFirmSelect" class="input-field"></select>
+                
+                <!-- NEW: WhatsApp AI Smart Billing Box -->
+                <div style="background: #e6fffa; border: 1px solid #319795; padding: 8px; border-radius: 4px; margin-bottom: 8px;">
+                    <label style="color: #234e52; font-size: 12px;"><b>💬 WhatsApp / AI se Bill Banao:</b></label>
+                    <div style="display:flex; gap:5px; margin-top:4px;">
+                        <input type="text" id="aiPromptInput" class="input-field" placeholder="Jaise: Ramesh ko 5 chair 2500 ki, GST 18%" style="margin-bottom:0;">
+                        <button type="button" id="processAiPromptBtn" class="btn-success" style="background:#319795; white-space:nowrap;">Generate</button>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:5px; margin-bottom:8px;">
+                    <input type="text" id="globalBarcodeScan" class="input-field" placeholder="Scan Barcode / Search Product..." style="margin-bottom:0;">
+                    <button id="startCamScannerBtn" class="btn-warning" style="height:35px;">📷 Scan Camera</button>
+                </div>
+                
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <label><b>Price Mode:</b></label>
+                    <label><input type="radio" name="priceMode" value="exclusive" checked> Without GST</label>
+                    <label><input type="radio" name="priceMode" value="inclusive"> With GST</label>
                 </div>
             </div>
 
-            <!-- Cart / Billing Section -->
-            <div class="bg-white p-4 rounded-lg shadow-md flex flex-col justify-between">
-                <div>
-                    <h2 class="text-lg font-semibold mb-4 text-gray-700">Current Sale</h2>
-                    <ul id="cart-items" class="divide-y divide-gray-200 mb-4 max-h-60 overflow-y-auto">
-                        <p class="text-gray-400 text-sm">Cart is empty</p>
-                    </ul>
-                </div>
-                <div>
-                    <div class="border-t pt-4 mb-4 flex justify-between text-lg font-bold">
-                        <span>Total:</span>
-                        <span id="cart-total">₹0</span>
+            <!-- INVOICE PRINTABLE AREA -->
+            <div id="printableInvoice" style="background:#fff; padding:20px; border:1px solid #ddd;">
+                <h3 style="text-align:center; margin-bottom:2px;">Tax Invoice</h3>
+                <h2 id="lblCompanyName" style="text-align:center; margin-top:0; margin-bottom:5px;">Golden Square & Co .</h2>
+                <p id="lblCompanyDetails" style="text-align:center; font-size:12px; margin-top:0;"></p>
+                <hr>
+                <div style="display:flex; justify-content:space-between; font-size:13px;">
+                    <div>
+                        <b>Bill To (Customer Details):</b><br>
+                        <select id="invoiceCustDropdown" class="no-print input-field" style="margin-top:5px; width:200px;"></select>
+                        <textarea id="manualCustDetails" class="input-field" rows="3" style="width:250px; margin-top:5px; font-size:12px;" placeholder="Customer Details..."></textarea>
                     </div>
-                    <button onclick="checkout()" class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition font-medium">Complete Sale & Sync to Cloud</button>
+                    <div>
+                        <b>Invoice:</b> <input type="text" id="invNumber" style="width:80px; padding:2px;"><br>
+                        <b>Date:</b> <input type="date" id="invDate" style="width:120px; padding:2px;"><br>
+                        <b>Place of Supply:</b> <input type="text" id="placeOfSupply" value="01-Jammu & Kashmir" style="width:130px; padding:2px; margin-top:3px;"><br>
+                    </div>
                 </div>
+
+                <div style="margin-top:8px;">
+                    <b>Notes / Remarks:</b> <input type="text" id="invoiceNotes" class="input-field" placeholder="Optional notes..." style="margin-bottom:5px;">
+                </div>
+
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th class="left">Item Name (Type to auto-suggest)</th>
+                            <th>Barcode</th>
+                            <th>HSN/SAC</th>
+                            <th>Qty</th>
+                            <th>UnitPrice (₹)</th>
+                            <th>GST Rate</th>
+                            <th>GST (₹)</th>
+                            <th>Amount(₹)</th>
+                            <th class="no-print">Act</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemRows"></tbody>
+                </table>
+                <button id="addItemRowBtn" class="btn-success no-print" style="margin-top:10px;">+ Add Item</button>
+
+                <!-- GST Tax Summary Table -->
+                <div style="margin-top:15px;">
+                    <h5 style="margin:0 0 5px 0;">Tax Summary:</h5>
+                    <table class="items-table" style="font-size:11px;">
+                        <thead>
+                            <tr>
+                                <th>HSN/ SAC</th>
+                                <th>Taxable Amount (₹)</th>
+                                <th colspan="2">CGST</th>
+                                <th colspan="2">SGST</th>
+                                <th>Total Tax(₹)</th>
+                            </tr>
+                            <tr>
+                                <th></th>
+                                <th></th>
+                                <th>Rate (%)</th>
+                                <th>Amt (₹)</th>
+                                <th>Rate (%)</th>
+                                <th>Amt (₹)</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="taxSummaryRows"></tbody>
+                    </table>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; margin-top:15px; align-items:flex-start;">
+                    <div style="font-size:12px; width:50%;">
+                        <p><b>Terms And Conditions:</b><br><span style="font-size:11px; color:#555;">Thank you for doing business with us. Goods once sold will not be taken back.</span></p>
+                        <p id="lblBankDetails" style="background:#f9f9f9; padding:8px; border:1px solid #eee; margin-top:5px;"></p>
+                    </div>
+                    <div style="width:45%; text-align:right;">
+                        <table style="width:100%; font-size:13px;">
+                            <tr><td><b>Sub Total :</b></td><td id="subTotal">0.00</td></tr>
+                            <tr><td><b>Total :</b></td><td><b id="grandTotal" style="font-size:15px;">0.00</b></td></tr>
+                            <tr class="no-print"><td><b>Received :</b></td><td><input type="number" id="amtReceived" value="0" style="width:100px; text-align:right;"></td></tr>
+                            <tr><td><b>Balance :</b></td><td><b id="balanceAmount" style="color:red;">0.00</b></td></tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div style="margin-top:10px; font-size:13px;">
+                    <b>Invoice Amount In Words:</b> <span id="amountInWords" style="font-style:italic;">Zero Rupees Only</span>
+                </div>
+
+                <div style="margin-top:25px; display:flex; justify-content:space-between;">
+                    <div></div>
+                    <div style="text-align:right;">
+                        <p id="lblSignCompanyName" style="margin-bottom:30px; font-weight:bold;">For Golden Square & Co . :</p>
+                        <p style="border-top:1px solid #333; display:inline-block; padding-top:5px;">Authorized Signatory</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ACTION BUTTONS -->
+            <div class="no-print" style="margin-top:15px; display:flex; gap:8px; flex-wrap:wrap;">
+                <button type="button" id="saveAndPrintBtn" class="btn-success" style="flex:1;">Save & Print A4</button>
+                <button type="button" id="openThermalBtn" class="btn-warning" style="flex:1;">🖨️ Print POS</button>
+                <button type="button" id="saveQuotationBtn" class="btn-warning" style="flex:1; background:#17a2b8; color:white;">📋 Save Quotation</button>
+                <button type="button" id="downloadPdfBtn" class="btn-warning" style="flex:1; background:#6c757d; color:white;">📥 PDF Download</button>
+            </div>
+            <div class="no-print" style="margin-top:8px; display:flex; gap:8px;">
+                <button type="button" id="shareWhatsappBtn" class="btn-success" style="background:#25D366; flex:1;" onclick="sendBillToWhatsApp()">📱 WhatsApp</button>
+                <button type="button" id="shareEmailBtn" class="btn-success" style="background:#007bff; flex:1;">✉️ Email</button>
+                <button type="button" id="clearFormBtn" class="btn-danger" style="flex:0.5;">Clear</button>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Firebase SDK Scripts (Modular v10) -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js";
-        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+<!-- 2. HISTORY PANEL -->
+<div id="historyPanel" class="panel">
+    <h3>Invoice History</h3>
+    <table class="items-table">
+        <thead>
+            <tr><th>Firm</th><th>Invoice No.</th><th>Date</th><th>Customer</th><th>Status</th><th>Total (₹)</th><th>Action</th></tr>
+        </thead>
+        <tbody id="historyTableBody"></tbody>
+    </table>
+</div>
 
-        // Your web app's Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyDlHR_MyuEIu9mIs-4_Mmk8NRUsLGQslw0",
-            authDomain: "my-pos-app-54ef4.firebaseapp.com",
-            projectId: "my-pos-app-54ef4",
-            storageBucket: "my-pos-app-54ef4.firebasestorage.app",
-            messagingSenderId: "974088050332",
-            appId: "1:974088050332:web:69dfd694fb6024cf197f59",
-            measurementId: "G-9GENNN74FE"
+<!-- 2.1 QUOTATIONS PANEL -->
+<div id="quotationPanel" class="panel">
+    <h3>Quotations / Estimates</h3>
+    <table class="items-table">
+        <thead>
+            <tr><th>Firm</th><th>Quotation No.</th><th>Date</th><th>Customer</th><th>Total (₹)</th><th>Action</th></tr>
+        </thead>
+        <tbody id="quotationTableBody"></tbody>
+    </table>
+</div>
+
+<!-- 3. LEDGER PANEL -->
+<div id="ledgerPanel" class="panel">
+    <h3>Pending Payments (Udhaar)</h3>
+    <table class="items-table">
+        <thead>
+            <tr><th>Customer Name / Details</th><th>Invoice No.</th><th>Balance Amount (₹)</th><th>Action</th></tr>
+        </thead>
+        <tbody id="ledgerTableBody"></tbody>
+    </table>
+</div>
+
+<!-- 4. REPORTS PANEL -->
+<div id="reportsPanel" class="panel">
+    <h3>📊 Business Reports & GSTR-1 Tax Summary</h3>
+    <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+        <div class="stat-card"><h4>Total Sales Revenue</h4><div id="repTotalSales">₹0.00</div></div>
+        <div class="stat-card"><h4>Total Amount Received</h4><div id="repTotalReceived" style="color: green;">₹0.00</div></div>
+        <div class="stat-card"><h4>Total Pending (Udhaar)</h4><div id="repTotalPending" style="color: red;">₹0.00</div></div>
+    </div>
+    <h4 style="border-top: 1px solid #ccc; padding-top: 10px;">GSTR-1 HSN-Wise Summary Report</h4>
+    <table class="items-table">
+        <thead><tr><th>HSN / SAC</th><th>Total Taxable Value (₹)</th><th>CGST Amount (₹)</th><th>SGST Amount (₹)</th><th>Total Tax Amount (₹)</th></tr></thead>
+        <tbody id="gstr1TableBody"></tbody>
+    </table>
+    <h4 style="margin-top:20px;">Day Book</h4>
+    <table class="items-table">
+        <thead><tr><th>Date</th><th>Invoice No.</th><th>Customer Name</th><th>Total Bill (₹)</th><th>Status</th></tr></thead>
+        <tbody id="dayBookTableBody"></tbody>
+    </table>
+</div>
+
+<!-- 5. BUSINESS PROFILES PANEL -->
+<div id="businessPanel" class="panel">
+    <h3>Manage Firms</h3>
+    <div class="box-section">
+        <input type="text" id="busName" class="input-field" placeholder="Firm Name">
+        <input type="text" id="busPrefix" class="input-field" placeholder="Prefix">
+        <textarea id="busAddress" class="input-field" placeholder="Address"></textarea>
+        <input type="text" id="busPhone" class="input-field" placeholder="Phone">
+        <input type="text" id="busGstin" class="input-field" placeholder="GSTIN">
+        <button type="button" id="saveBusinessBtn" class="btn-success" style="margin-top: 10px; width:100%;">Save Firm</button>
+    </div>
+    <table class="items-table" style="margin-top:15px;">
+        <thead><tr><th>Firm Name</th><th>GSTIN</th><th>Action</th></tr></thead>
+        <tbody id="companyTableBody"></tbody>
+    </table>
+</div>
+
+<!-- 6. CUSTOMERS PANEL -->
+<div id="customersPanel" class="panel">
+    <h3>Customer Management</h3>
+    <div class="box-section">
+        <input type="text" id="newCustName" class="input-field" placeholder="Customer Name">
+        <textarea id="newCustAddress" class="input-field" placeholder="Address"></textarea>
+        <input type="text" id="newCustPhone" class="input-field" placeholder="Phone">
+        <input type="text" id="newCustGstin" class="input-field" placeholder="GSTIN">
+        <button type="button" id="saveCustomerBtn" class="btn-success">Save Customer</button>
+    </div>
+    <table class="items-table" style="margin-top: 15px;">
+        <thead><tr><th>Customer Name</th><th>Phone</th><th>GSTIN / Address</th><th>Ledger</th><th>Action</th></tr></thead>
+        <tbody id="customerTableBody"></tbody>
+    </table>
+</div>
+
+<!-- 7. INVENTORY PANEL -->
+<div id="inventoryPanel" class="panel">
+    <h3>Stock & Barcode Management</h3>
+    <div class="box-section">
+        <input type="text" id="prodName" class="input-field" placeholder="Product Name">
+        <div style="display:flex; gap:5px;">
+            <input type="text" id="prodBarcode" class="input-field" placeholder="Barcode Number" style="margin-bottom:5px;">
+            <button type="button" id="startInvCamScannerBtn" class="btn-warning" style="height:28px; font-size:11px;">📷 Scan</button>
+        </div>
+        <input type="text" id="prodHsn" class="input-field" placeholder="HSN/SAC">
+        <input type="number" id="prodPrice" class="input-field" placeholder="Price (₹)">
+        <select id="prodGst" class="input-field">
+            <option value="18">18% GST</option>
+            <option value="12">12% GST</option>
+            <option value="28">28% GST</option>
+            <option value="5">5% GST</option>
+            <option value="0">0% GST</option>
+        </select>
+        <input type="number" id="prodStock" class="input-field" placeholder="Stock Qty">
+        <button type="button" id="saveProductBtn" class="btn-success">Save Product & Barcode</button>
+    </div>
+    <table class="items-table" style="margin-top: 15px;">
+        <thead><tr><th>Product</th><th>Barcode</th><th>HSN</th><th>Price</th><th>GST</th><th>Stock</th><th>Action</th></tr></thead>
+        <tbody id="inventoryTableBody"></tbody>
+    </table>
+</div>
+
+<!-- CAMERA SCANNER MODAL VIEW -->
+<div id="scannerModal">
+    <div style="background:white; padding:15px; border-radius:8px; text-align:center; width:340px;">
+        <h4 style="margin-top:0;">Scan Barcode via Camera</h4>
+        <div id="interactive" class="viewport"></div>
+        <button type="button" id="closeScannerModalBtn" class="btn-danger" style="margin-top:15px; width:100%;">Close Camera</button>
+    </div>
+</div>
+
+<!-- THERMAL RECEIPT MODAL PREVIEW -->
+<div id="thermalReceiptModal" class="no-print" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1000;">
+    <div style="width:300px; background:#fff; padding:15px; font-family:'Courier New',Courier,monospace; font-size:12px;">
+        <div id="thermalContent" style="white-space: pre-line;"></div>
+        <div style="margin-top: 15px; display: flex; gap: 5px;">
+            <button type="button" id="printThermalSlipBtn" class="btn-success" style="flex:1; font-size:11px;">Print Slip</button>
+            <button type="button" id="closeThermalModalBtn" class="btn-danger" style="flex:1; font-size:11px;">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- STYLISH & COLOURFUL QUOTATION/INVOICE PRINT MODAL -->
+<div id="quotationPrintModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; z-index:3000;">
+    <div style="width:820px; background:#fff; padding:35px; border-radius:10px; max-height:95vh; overflow-y:auto; box-shadow:0 8px 25px rgba(0,0,0,0.3); font-family:'Segoe UI', Arial, sans-serif; border-top: 6px solid #1a365d;">
+        
+        <!-- Header Banner -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px;">
+            <div>
+                <h1 id="qPrintDocTitle" style="margin:0; font-size:26px; color:#1a365d; letter-spacing:1px; font-weight:800;">QUOTATION</h1>
+                <h3 id="qPrintFirmName" style="margin:6px 0 3px 0; color:#2b6cb0; font-size:18px; font-weight:700;"></h3>
+                <p id="qPrintFirmDetails" style="font-size:11px; color:#4a5568; margin:0; line-height:1.5;"></p>
+            </div>
+            <div style="text-align: right; font-size: 12px; background: #f7fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <div style="margin-bottom: 3px;"><b id="qPrintNoLabel">Quotation No:</b> <span id="qPrintNum" style="color: #2b6cb0; font-weight: bold;"></span></div>
+                <div style="margin-bottom: 3px;"><b id="qPrintDateLabel">Quotation Date:</b> <span id="qPrintDate"></span></div>
+                <div id="qPrintExpiryContainer"><b>Expiry Date:</b> <span id="qPrintExpiryDate"></span></div>
+            </div>
+        </div>
+
+        <!-- Bill To / Ship To Colored Boxes -->
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:20px; gap:15px;">
+            <div style="width:48%; background:#f8fafc; padding:12px; border-radius:6px; border:1px solid #cbd5e0; border-left: 4px solid #3182ce;">
+                <b style="color:#2c5282; font-size:13px; display:block; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px;">Bill To</b>
+                <div id="qPrintBillTo" style="white-space: pre-line; font-size:12px; color:#2d3748; line-height:1.5;"></div>
+            </div>
+            <div style="width:48%; background:#f8fafc; padding:12px; border-radius:6px; border:1px solid #cbd5e0; border-left: 4px solid #3182ce;">
+                <b style="color:#2c5282; font-size:13px; display:block; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px;">Ship To</b>
+                <div id="qPrintShipTo" style="white-space: pre-line; font-size:12px; color:#2d3748; line-height:1.5;"></div>
+            </div>
+        </div>
+
+        <!-- Stylish Items Table -->
+        <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:12px;">
+            <thead>
+                <tr style="background:#1a365d; color:white;">
+                    <th style="padding:10px; border:1px solid #1a365d; text-align:center; width:45px;">S.NO.</th>
+                    <th style="padding:10px; border:1px solid #1a365d; text-align:left;">ITEMS</th>
+                    <th style="padding:10px; border:1px solid #1a365d; text-align:center; width:75px;">QTY.</th>
+                    <th style="padding:10px; border:1px solid #1a365d; text-align:right; width:100px;">RATE (₹)</th>
+                    <th style="padding:10px; border:1px solid #1a365d; text-align:center; width:120px;">TAX</th>
+                    <th style="padding:10px; border:1px solid #1a365d; text-align:right; width:110px;">AMOUNT (₹)</th>
+                </tr>
+            </thead>
+            <tbody id="qPrintItemsBody"></tbody>
+        </table>
+
+        <!-- Grand Total Footer Row -->
+        <div style="display:flex; justify-content:flex-end; background:#edf2f7; padding:10px 15px; border:1px solid #cbd5e0; border-top:none; font-weight:bold; font-size:13px; color:#1a365d;">
+            <div style="width:60%; display:flex; justify-content:space-between; align-items:center;">
+                <span>TOTAL:</span>
+                <span id="qPrintTableTotalQty" style="text-align:center; width:50px;"></span>
+                <span id="qPrintTableTotalAmt" style="text-align:right; width:110px; font-size:15px; color:#2b6cb0;"></span>
+            </div>
+        </div>
+
+        <!-- HSN/SAC Summary Table -->
+        <div style="margin-top:20px;">
+            <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                <thead>
+                    <tr style="background:#e2e8f0; color:#2d3748; font-weight:bold;">
+                        <th style="padding:7px; border:1px solid #cbd5e0;">HSN/SAC</th>
+                        <th style="padding:7px; border:1px solid #cbd5e0; text-align:right;">Taxable Value</th>
+                        <th style="padding:7px; border:1px solid #cbd5e0; text-align:center;" colspan="2">CGST</th>
+                        <th style="padding:7px; border:1px solid #cbd5e0; text-align:center;" colspan="2">SGST</th>
+                        <th style="padding:7px; border:1px solid #cbd5e0; text-align:right;">Total Tax Amount</th>
+                    </tr>
+                    <tr style="background:#f7fafc; color:#4a5568; font-size:10px;">
+                        <th style="border:1px solid #cbd5e0;"></th>
+                        <th style="border:1px solid #cbd5e0;"></th>
+                        <th style="border:1px solid #cbd5e0; text-align:center;">Rate</th>
+                        <th style="border:1px solid #cbd5e0; text-align:right;">Amount</th>
+                        <th style="border:1px solid #cbd5e0; text-align:center;">Rate</th>
+                        <th style="border:1px solid #cbd5e0; text-align:right;">Amount</th>
+                        <th style="border:1px solid #cbd5e0;"></th>
+                    </tr>
+                </thead>
+                <tbody id="qPrintTaxSummary"></tbody>
+            </table>
+        </div>
+
+        <!-- Amount in Words Box -->
+        <div style="margin-top:15px; font-size:12px; background:#ebf8ff; padding:12px; border:1px solid #bee3f8; border-radius:6px; border-left: 4px solid #3182ce;">
+            <b style="color:#2b6cb0;">Total Amount (in words):</b><br>
+            <span id="qPrintAmountWords" style="font-style:italic; font-weight:bold; color:#2c5282; font-size:13px;"></span>
+        </div>
+
+        <!-- Bank Details & Signature Section -->
+        <div style="margin-top:20px; display:flex; justify-content:space-between; align-items:flex-start; font-size:11px;">
+            <div style="width:48%; background:#f7fafc; padding:12px; border-radius:6px; border:1px solid #e2e8f0;">
+                <b style="color:#1a365d; font-size:12px; display:block; margin-bottom:5px;">Bank Details:</b>
+                <div id="qPrintBankDetails" style="margin-top:4px; line-height:1.5; color:#4a5568;"></div>
+            </div>
+            <div style="width:45%; text-align:right; padding-top: 10px;">
+                <b id="qPrintSignFirmText" style="font-size:12px; color:#1a365d; display:block; margin-bottom:40px;"></b>
+                <p style="border-top:1px solid #4a5568; display:inline-block; padding-top:5px; font-size:11px; font-weight:bold; width:200px; text-align:center; color:#2d3748;">Authorised Signatory</p>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="margin-top: 30px; display: flex; gap: 10px;" class="no-print">
+            <button type="button" id="printQModalBtn" class="btn-success" style="flex:1; padding:10px; font-size:14px;">🖨️ Print Document</button>
+            <button type="button" id="closeQModalBtn" class="btn-danger" style="flex:1; padding:10px; font-size:14px;">Close</button>
+        </div>
+    </div>
+</div>
+
+<datalist id="inventoryList"></datalist>
+
+<script>
+    let db = null;
+    let useCloud = false;
+
+    let companies = JSON.parse(localStorage.getItem('gs_companies')) || [
+        {
+            name: "Golden Square & Co .",
+            prefix: "GS",
+            address: "3RD FLOOR ROOM 1 FURNITURE BUILDING NEAR VETERINARY HOSPITAL EXCHANGE ROAD LAL CHOWK ESTATE MAISUMA",
+            phone: "7006688390",
+            gstin: "01OFPS7711Q1ZB",
+            bankName: "Jammu And Kashmir Bank Limited, Amira Kadal Srinagar",
+            accNo: "0002010100008509",
+            ifsc: "JAKAOSQUARE"
+        },
+        {
+            name: "golden star furniture and interior",
+            prefix: "GSFI",
+            address: "Srinagar, Jammu and Kashmir",
+            phone: "7006688390",
+            gstin: "01OFPS7711Q1ZB",
+            bankName: "Jammu And Kashmir Bank Limited",
+            accNo: "0002010100008509",
+            ifsc: "JAKAOSQUARE"
+        },
+        {
+            name: "clapsmile",
+            prefix: "CLP",
+            address: "Srinagar, Jammu and Kashmir",
+            phone: "7006688390",
+            gstin: "01OFPS7711Q1ZB",
+            bankName: "Jammu And Kashmir Bank Limited",
+            accNo: "0002010100008509",
+            ifsc: "JAKAOSQUARE"
+        }
+    ];
+
+    let customers = JSON.parse(localStorage.getItem('gs_customers')) || [
+        { name: "PRINCIPAL KV1, SRINAGAR", address: "Srinagar, J&K", phone: "", gstin: "Unregistered", state: "01-Jammu & Kashmir" },
+        { name: "New vision enterprise", address: "Srinagar, J&K", phone: "", gstin: "Unregistered", state: "01-Jammu & Kashmir" },
+        { name: "PRINCIPAL KV HUMHAMA", address: "STC BSF CAMPUS, HUMHAMA, Budgam, J&K-190007", phone: "", gstin: "Unregistered", state: "01-Jammu & Kashmir" },
+        { name: "gurmeet singh", address: "Srinagar, J&K", phone: "7006688390", gstin: "Unregistered", state: "01-Jammu & Kashmir" }
+    ];
+
+    let inventory = JSON.parse(localStorage.getItem('gs_inventory')) || [
+        { name: "Steel almirah big one", barcode: "890101", hsn: "9403", price: 9322.03, gst: 18, stock: 3 },
+        { name: "Almirah small", barcode: "890102", hsn: "9403", price: 5508.47, gst: 18, stock: 15 }
+    ];
+    let invoices = JSON.parse(localStorage.getItem('gs_invoices')) || [];
+    let quotations = JSON.parse(localStorage.getItem('gs_quotations')) || [];
+
+    window.onload = function() {
+        document.getElementById('invDate').valueAsDate = new Date();
+        populateFirmDropdowns();
+        populateCustomerDropdown();
+        updateInventoryDatalist();
+        onFirmChange();
+        renderCompanyTable();
+        renderCustomerTable();
+        renderInventoryTable();
+        addItemRow();
+        setNextInvoiceNumber();
+        updateReports();
+        renderHistoryTable();
+        renderQuotationTable();
+
+        setupEventListeners();
+
+        let savedCfg = localStorage.getItem('gs_fb_config');
+        if(savedCfg) {
+            try {
+                let cfgObj = JSON.parse(savedCfg);
+                document.getElementById('firebaseConfigInput').value = savedCfg;
+                initFirebase(cfgObj);
+            } catch(e) {}
+        }
+    };
+
+    function setupEventListeners() {
+        document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+            btn.addEventListener('click', (e) => switchTab(btn.getAttribute('data-tab'), e));
+        });
+
+        document.getElementById('cloudConfigToggleBtn').addEventListener('click', toggleCloudConfig);
+        document.getElementById('saveFirebaseConfigBtn').addEventListener('click', saveFirebaseConfig);
+
+        document.getElementById('activeFirmSelect').addEventListener('change', onFirmChange);
+        document.getElementById('globalBarcodeScan').addEventListener('keypress', handleGlobalBarcode);
+
+        // NEW: AI / WhatsApp Prompt Listener
+        document.getElementById('processAiPromptBtn').addEventListener('click', processAiBillingPrompt);
+        document.getElementById('aiPromptInput').addEventListener('keypress', function(e) {
+            if(e.key === 'Enter') processAiBillingPrompt();
+        });
+
+        document.getElementById('startCamScannerBtn').addEventListener('click', () => startCameraScanner('global'));
+        document.getElementById('startInvCamScannerBtn').addEventListener('click', startCameraScannerForInventory);
+        document.getElementById('closeScannerModalBtn').addEventListener('click', stopCameraScanner);
+
+        document.querySelectorAll('input[name="priceMode"]').forEach(radio => {
+            radio.addEventListener('change', calculateTotals);
+        });
+
+        document.getElementById('invoiceCustDropdown').addEventListener('change', onCustomerSelected);
+        document.getElementById('addItemRowBtn').addEventListener('click', addItemRow);
+        document.getElementById('amtReceived').addEventListener('input', calculateTotals);
+
+        document.getElementById('saveAndPrintBtn').addEventListener('click', saveAndPrintInvoice);
+        document.getElementById('openThermalBtn').addEventListener('click', openThermalReceipt);
+        document.getElementById('saveQuotationBtn').addEventListener('click', saveQuotation);
+        document.getElementById('downloadPdfBtn').addEventListener('click', downloadOrSharePDF);
+        document.getElementById('shareWhatsappBtn').addEventListener('click', shareOnWhatsApp);
+        document.getElementById('shareEmailBtn').addEventListener('click', shareViaEmail);
+        document.getElementById('clearFormBtn').addEventListener('click', resetInvoiceForm);
+
+        document.getElementById('printThermalSlipBtn').addEventListener('click', () => window.print());
+        document.getElementById('closeThermalModalBtn').addEventListener('click', () => {
+            document.getElementById('thermalReceiptModal').style.display = 'none';
+        });
+
+        document.getElementById('printQModalBtn').addEventListener('click', () => window.print());
+        document.getElementById('closeQModalBtn').addEventListener('click', () => {
+            document.getElementById('quotationPrintModal').style.display = 'none';
+        });
+
+        document.getElementById('saveBusinessBtn').addEventListener('click', saveBusinessProfile);
+        document.getElementById('saveCustomerBtn').addEventListener('click', saveCustomer);
+        document.getElementById('saveProductBtn').addEventListener('click', saveProduct);
+    }
+
+    // NEW: Smart AI / WhatsApp Prompt Parser Function
+    function processAiBillingPrompt() {
+        let text = document.getElementById('aiPromptInput').value.trim();
+        if(!text) {
+            alert("Kripya text likhein, jaise: Ramesh ko 5 chair 2500 ki, GST 18%");
+            return;
+        }
+
+        let parts = text.split(/ ko | ko | - /i);
+        let custName = parts.length > 1 ? parts[0].trim() : "Cash Customer";
+        let restText = parts.length > 1 ? parts[1] : text;
+
+        let qtyMatch = restText.match(/(\d+)\s*(chair|table|pcs|piece|item|almirah|bed)/i) || restText.match(/(\d+)\s/);
+        let qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+
+        let priceMatch = restText.match(/(\d+)\s*(ki|rs|rupee|₹)?/i);
+        let price = 0;
+        let numbers = restText.match(/\d+/g);
+        if(numbers) {
+            let filteredNums = numbers.map(Number);
+            if(qtyMatch && filteredNums.includes(qty)) {
+                let idx = filteredNums.indexOf(qty);
+                filteredNums.splice(idx, 1);
+            }
+            if(filteredNums.length > 0) {
+                price = filteredNums.find(n => n !== 18 && n !== 12 && n !== 5 && n !== 28) || filteredNums[0];
+            }
+        }
+
+        let gstMatch = restText.match(/(?:gst\s*|@\s*)(\d+)/i);
+        let gstRate = gstMatch ? parseInt(gstMatch[1]) : 18;
+
+        let itemName = restText.replace(/\d+/g, '').replace(/ki|rs|rupee|gst|%|pcs|piece/gi, '').trim();
+        if(!itemName) itemName = "General Item";
+
+        document.getElementById('manualCustDetails').value = `${custName.toUpperCase()}\nJammu & Kashmir\nState: 01-Jammu & Kashmir`;
+
+        let tbody = document.getElementById('itemRows');
+        tbody.innerHTML = '';
+        addItemRowWithProduct({
+            name: itemName,
+            barcode: '',
+            hsn: '9403',
+            price: price || 1000,
+            gst: gstRate,
+            qty: qty
+        });
+
+        document.getElementById('aiPromptInput').value = '';
+        alert(`Bill Generated for ${custName.toUpperCase()}: ${qty} x ${itemName} @ ₹${price} (${gstRate}% GST)`);
+    }
+
+    function switchTab(tabID, evt) {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabID + 'Panel').classList.add('active');
+        if(evt && evt.currentTarget) evt.currentTarget.classList.add('active');
+        if(tabID === 'reports') updateReports();
+        if(tabID === 'history') renderHistoryTable();
+        if(tabID === 'quotation') renderQuotationTable();
+        if(tabID === 'ledger') renderLedgerTable();
+    }
+
+    function toggleCloudConfig() {
+        let box = document.getElementById('cloudConfigBox');
+        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function saveFirebaseConfig() {
+        let val = document.getElementById('firebaseConfigInput').value.trim();
+        try {
+            let cfgObj = JSON.parse(val);
+            localStorage.setItem('gs_fb_config', val);
+            initFirebase(cfgObj);
+            alert("Firebase successfully connected!");
+            toggleCloudConfig();
+        } catch(e) {
+            alert("Invalid JSON format!");
+        }
+    }
+
+    function initFirebase(config) {
+        try {
+            if(!firebase.apps.length) {
+                firebase.initializeApp(config);
+            }
+            db = firebase.firestore();
+            useCloud = true;
+            document.getElementById('syncStatus').innerText = "☁️ Cloud Synced";
+            document.getElementById('syncStatus').style.color = "#007bff";
+            fetchCloudData();
+        } catch(e) { useCloud = false; }
+    }
+
+    async function fetchCloudData() {
+        if(!useCloud || !db) return;
+        try {
+            let snap = await db.collection('pos_data').doc('store').get();
+            if(snap.exists) {
+                let data = snap.data();
+                if(data.companies) companies = data.companies;
+                if(data.customers) customers = data.customers;
+                if(data.inventory) inventory = data.inventory;
+                if(data.invoices) invoices = data.invoices;
+                if(data.quotations) quotations = data.quotations;
+                populateFirmDropdowns();
+                populateCustomerDropdown();
+                updateInventoryDatalist();
+                renderInventoryTable();
+                renderHistoryTable();
+                renderQuotationTable();
+                onFirmChange();
+            }
+        } catch(e) {}
+    }
+
+    function syncToCloud() {
+        localStorage.setItem('gs_companies', JSON.stringify(companies));
+        localStorage.setItem('gs_customers', JSON.stringify(customers));
+        localStorage.setItem('gs_inventory', JSON.stringify(inventory));
+        localStorage.setItem('gs_invoices', JSON.stringify(invoices));
+        localStorage.setItem('gs_quotations', JSON.stringify(quotations));
+
+        if(!useCloud || !db) return;
+        db.collection('pos_data').doc('store').set({
+            companies, customers, inventory, invoices, quotations
+        }).catch(e => {});
+    }
+
+    function updateInventoryDatalist() {
+        let datalist = document.getElementById('inventoryList');
+        if(!datalist) return;
+        datalist.innerHTML = '';
+        inventory.forEach(prod => {
+            let opt = document.createElement('option');
+            opt.value = prod.name;
+            opt.innerText = `Stock: ${prod.stock} | Price: ₹${prod.price}`;
+            datalist.appendChild(opt);
+        });
+    }
+
+    let activeScannerTarget = 'global';
+    let lastScannedCode = '';
+    let lastScanTime = 0;
+
+    function startCameraScanner(target = 'global') {
+        activeScannerTarget = target;
+        document.getElementById('scannerModal').style.display = 'flex';
+        
+        Quagga.init({
+            inputStream: {
+                name: "Live",
+                type: "LiveStream",
+                target: document.querySelector('#interactive'),
+                constraints: { facingMode: "environment" },
+            },
+            decoder: {
+                readers: ["ean_reader", "ean_8_reader", "code_128_reader", "upc_reader", "upc_e_reader"]
+            }
+        }, function(err) {
+            if (err) {
+                alert("Camera start nahi ho saka!");
+                stopCameraScanner();
+                return;
+            }
+            Quagga.start();
+        });
+
+        Quagga.onDetected(onBarcodeScannedFromCamera);
+    }
+
+    function startCameraScannerForInventory() {
+        startCameraScanner('inventory');
+    }
+
+    function stopCameraScanner() {
+        try { Quagga.stop(); } catch(e) {}
+        document.getElementById('scannerModal').style.display = 'none';
+    }
+
+    function onBarcodeScannedFromCamera(result) {
+        let code = result.codeResult.code;
+        let currentTime = new Date().getTime();
+
+        if (code === lastScannedCode && (currentTime - lastScanTime < 2000)) {
+            return; 
+        }
+        
+        lastScannedCode = code;
+        lastScanTime = currentTime;
+        stopCameraScanner();
+
+        if(activeScannerTarget === 'global') {
+            document.getElementById('globalBarcodeScan').value = code;
+            handleGlobalBarcode({ key: 'Enter', preventDefault: () => {} });
+        } else if(activeScannerTarget === 'inventory') {
+            document.getElementById('prodBarcode').value = code;
+        }
+    }
+
+    function setNextInvoiceNumber() {
+        if(invoices.length > 0) {
+            let lastInv = invoices[invoices.length - 1];
+            let nextNum = (parseInt(lastInv.invNumber) || invoices.length) + 1;
+            document.getElementById('invNumber').value = nextNum;
+        } else {
+            document.getElementById('invNumber').value = 1;
+        }
+    }
+
+    function populateFirmDropdowns() {
+        let sel = document.getElementById('activeFirmSelect');
+        if(!sel) return;
+        sel.innerHTML = '';
+        companies.forEach((c, idx) => {
+            let opt = document.createElement('option');
+            opt.value = idx;
+            opt.innerText = c.name;
+            sel.appendChild(opt);
+        });
+    }
+
+    function populateCustomerDropdown() {
+        let sel = document.getElementById('invoiceCustDropdown');
+        if(!sel) return;
+        sel.innerHTML = '<option value="">-- Select Customer --</option>';
+        customers.forEach((cust, idx) => {
+            let opt = document.createElement('option');
+            opt.value = idx;
+            opt.innerText = cust.name + (cust.phone ? ' (' + cust.phone + ')' : '');
+            sel.appendChild(opt);
+        });
+    }
+
+    function onFirmChange() {
+        let idx = document.getElementById('activeFirmSelect').value;
+        if(companies[idx]) {
+            let firm = companies[idx];
+            document.getElementById('lblCompanyName').innerText = firm.name;
+            document.getElementById('lblCompanyDetails').innerHTML = `Address: ${firm.address}<br>Phone: ${firm.phone} | GSTIN: ${firm.gstin}`;
+            document.getElementById('lblBankDetails').innerHTML = `<b>Bank Details:</b><br>Bank Name: ${firm.bankName || 'N/A'}<br>A/C No: ${firm.accNo || 'N/A'}<br>IFSC: ${firm.ifsc || 'N/A'}`;
+            document.getElementById('lblSignCompanyName').innerText = `For ${firm.name} :`;
+        }
+    }
+
+    function onCustomerSelected() {
+        let idx = document.getElementById('invoiceCustDropdown').value;
+        if(idx !== "") {
+            let cust = customers[idx];
+            let text = `${cust.name}\n${cust.address}\nPhone: ${cust.phone || 'N/A'}\nGSTIN: ${cust.gstin || 'Unregistered'}\nState: ${cust.state || '01-Jammu & Kashmir'}`;
+            document.getElementById('manualCustDetails').value = text;
+            if(cust.state) {
+                document.getElementById('placeOfSupply').value = cust.state;
+            }
+        }
+    }
+
+    function handleGlobalBarcode(e) {
+        if(e.key === 'Enter') {
+            e.preventDefault();
+            let code = document.getElementById('globalBarcodeScan').value.trim();
+            if(!code) return;
+            let prod = inventory.find(p => p.barcode === code || p.name.toLowerCase().includes(code.toLowerCase()));
+            if(prod) {
+                addItemRowWithProduct(prod);
+                document.getElementById('globalBarcodeScan').value = '';
+            } else {
+                alert("Product not found with barcode / search term!");
+            }
+        }
+    }
+
+    function addItemRowWithProduct(prod) {
+        let tbody = document.getElementById('itemRows');
+        let rowCount = tbody.rows.length + 1;
+        let tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${rowCount}</td>
+            <td class="left"><input type="text" class="input-field row-name" value="${prod.name || ''}" list="inventoryList" style="margin-bottom:0;"></td>
+            <td><input type="text" class="input-field row-barcode" value="${prod.barcode || ''}" style="margin-bottom:0;"></td>
+            <td><input type="text" class="input-field row-hsn" value="${prod.hsn || ''}" style="margin-bottom:0;"></td>
+            <td><input type="number" class="input-field row-qty" value="${prod.qty || 1}" min="1" style="margin-bottom:0;"></td>
+            <td><input type="number" class="input-field row-price" value="${prod.price || 0}" step="0.01" style="margin-bottom:0;"></td>
+            <td>
+                <select class="input-field row-gst" style="margin-bottom:0;">
+                    <option value="18" ${(prod.gst==18 || !prod.gst)?'selected':''}>18%</option>
+                    <option value="12" ${prod.gst==12?'selected':''}>12%</option>
+                    <option value="28" ${prod.gst==28?'selected':''}>28%</option>
+                    <option value="5" ${prod.gst==5?'selected':''}>5%</option>
+                    <option value="0" ${prod.gst==0?'selected':''}>0%</option>
+                </select>
+            </td>
+            <td class="row-gst-amt right">0.00</td>
+            <td class="row-total right">0.00</td>
+            <td class="no-print"><button type="button" class="btn-danger remove-row-btn">X</button></td>
+        `;
+        
+        tr.querySelector('.row-name').addEventListener('change', function() {
+            onRowProductSelected(this);
+        });
+        tr.querySelector('.row-qty').addEventListener('input', calculateTotals);
+        tr.querySelector('.row-price').addEventListener('input', calculateTotals);
+        tr.querySelector('.row-gst').addEventListener('change', calculateTotals);
+        tr.querySelector('.remove-row-btn').addEventListener('click', function() {
+            tr.remove();
+            calculateTotals();
+        });
+
+        tbody.appendChild(tr);
+        calculateTotals();
+    }
+
+    function onRowProductSelected(inputElem) {
+        let val = inputElem.value.trim();
+        let prod = inventory.find(p => p.name.toLowerCase() === val.toLowerCase());
+        if(prod) {
+            let tr = inputElem.closest('tr');
+            tr.querySelector('.row-barcode').value = prod.barcode || '';
+            tr.querySelector('.row-hsn').value = prod.hsn || '';
+            tr.querySelector('.row-price').value = prod.price || 0;
+            let gstSelect = tr.querySelector('.row-gst');
+            if(gstSelect) gstSelect.value = prod.gst || 18;
+            calculateTotals();
+        }
+    }
+
+    function addItemRow() {
+        addItemRowWithProduct({ name: '', barcode: '', hsn: '', price: 0, gst: 18, qty: 1 });
+    }
+
+    function calculateTotals() {
+        let priceModeInput = document.querySelector('input[name="priceMode"]:checked');
+        let priceMode = priceModeInput ? priceModeInput.value : 'exclusive';
+        let rows = document.querySelectorAll('#itemRows tr');
+        let subTotal = 0;
+        let grandTotal = 0;
+        let taxMap = {};
+
+        rows.forEach(tr => {
+            let qty = parseFloat(tr.querySelector('.row-qty').value) || 0;
+            let enteredPrice = parseFloat(tr.querySelector('.row-price').value) || 0;
+            let gstRate = parseFloat(tr.querySelector('.row-gst').value) || 0;
+            let hsn = tr.querySelector('.row-hsn').value.trim() || 'GENERAL';
+
+            let taxable = 0;
+            let gstAmt = 0;
+            let totalLine = 0;
+
+            if(priceMode === 'inclusive') {
+                totalLine = enteredPrice * qty;
+                taxable = totalLine / (1 + (gstRate / 100));
+                gstAmt = totalLine - taxable;
+            } else {
+                taxable = enteredPrice * qty;
+                gstAmt = taxable * (gstRate / 100);
+                totalLine = taxable + gstAmt;
+            }
+
+            subTotal += taxable;
+            grandTotal += totalLine;
+
+            tr.querySelector('.row-gst-amt').innerText = gstAmt.toFixed(2);
+            tr.querySelector('.row-total').innerText = totalLine.toFixed(2);
+
+            if(!taxMap[hsn]) {
+                taxMap[hsn] = { taxable: 0, cgstRate: gstRate / 2, cgstAmt: 0, sgstRate: gstRate / 2, sgstAmt: 0, totalTax: 0 };
+            }
+            taxMap[hsn].taxable += taxable;
+            taxMap[hsn].cgstAmt += gstAmt / 2;
+            taxMap[hsn].sgstAmt += gstAmt / 2;
+            taxMap[hsn].totalTax += gstAmt;
+        });
+
+        document.getElementById('subTotal').innerText = subTotal.toFixed(2);
+        document.getElementById('grandTotal').innerText = grandTotal.toFixed(2);
+        document.getElementById('amountInWords').innerText = convertNumberToWords(Math.round(grandTotal));
+
+        let received = parseFloat(document.getElementById('amtReceived').value) || 0;
+        let balance = grandTotal - received;
+        let balElem = document.getElementById('balanceAmount');
+        balElem.innerText = balance.toFixed(2);
+        balElem.style.color = balance > 0 ? '#b30000' : 'green';
+
+        let taxBody = document.getElementById('taxSummaryRows');
+        taxBody.innerHTML = '';
+        for(let hsn in taxMap) {
+            let t = taxMap[hsn];
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${hsn}</td>
+                <td class="right">${t.taxable.toFixed(2)}</td>
+                <td>${t.cgstRate}%</td>
+                <td class="right">${t.cgstAmt.toFixed(2)}</td>
+                <td>${t.sgstRate}%</td>
+                <td class="right">${t.sgstAmt.toFixed(2)}</td>
+                <td class="right">${t.totalTax.toFixed(2)}</td>
+            `;
+            taxBody.appendChild(tr);
+        }
+    }
+
+    function convertNumberToWords(amount) {
+        if(amount === 0) return "Zero Rupees Only";
+        let words = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+        let tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+
+        function getWord(n) {
+            if(n < 20) return words[n];
+            return tens[Math.floor(n/10)] + (n%10 ? ' ' + words[n%10] : '');
+        }
+
+        let num = Math.floor(amount);
+        let str = '';
+        if(num >= 10000000) {
+            str += getWord(Math.floor(num / 10000000)) + ' Crore ';
+            num %= 10000000;
+        }
+        if(num >= 100000) {
+            str += getWord(Math.floor(num / 100000)) + ' Lakh ';
+            num %= 100000;
+        }
+        if(num >= 1000) {
+            str += getWord(Math.floor(num / 1000)) + ' Thousand ';
+            num %= 1000;
+        }
+        if(num >= 100) {
+            str += getWord(Math.floor(num / 100)) + ' Hundred ';
+            num %= 100;
+        }
+        if(num > 0) {
+            str += getWord(num) + ' ';
+        }
+        return str.trim() + ' Rupees Only';
+    }
+
+    function saveAndPrintInvoice() {
+        let invNo = document.getElementById('invNumber').value;
+        let firmIdx = document.getElementById('activeFirmSelect').value;
+        let firmName = companies[firmIdx] ? companies[firmIdx].name : "Firm";
+        let custDetails = document.getElementById('manualCustDetails').value;
+        let custName = custDetails.split('\n')[0] || "Cash Customer";
+        let grandTotal = parseFloat(document.getElementById('grandTotal').innerText) || 0;
+        let received = parseFloat(document.getElementById('amtReceived').value) || 0;
+        let balance = parseFloat(document.getElementById('balanceAmount').innerText) || 0;
+        let date = document.getElementById('invDate').value;
+
+        let items = [];
+        document.querySelectorAll('#itemRows tr').forEach(tr => {
+            items.push({
+                name: tr.querySelector('.row-name').value,
+                barcode: tr.querySelector('.row-barcode').value,
+                hsn: tr.querySelector('.row-hsn').value,
+                qty: tr.querySelector('.row-qty').value,
+                price: tr.querySelector('.row-price').value,
+                gst: tr.querySelector('.row-gst').value,
+                total: tr.querySelector('.row-total').innerText
+            });
+        });
+
+        let invoiceRecord = {
+            firm: firmName,
+            invNumber: invNo,
+            date: date,
+            customer: custName,
+            custDetails: custDetails,
+            grandTotal: grandTotal,
+            received: received,
+            balance: balance,
+            items: items,
+            status: balance <= 0 ? 'Paid' : 'Pending'
         };
 
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const analytics = getAnalytics(app);
-        const db = getFirestore(app);
+        invoices.push(invoiceRecord);
+        syncToCloud();
+        
+        renderHistoryTable();
+        window.print();
+        setNextInvoiceNumber();
+        resetInvoiceForm();
+    }
 
-        // Update UI status
-        document.getElementById("connection-status").innerText = "Cloud Connected";
-        document.getElementById("connection-status").className = "px-3 py-1 text-sm bg-green-100 text-green-800 rounded-full";
+    function saveQuotation() {
+        let firmIdx = document.getElementById('activeFirmSelect').value;
+        let firmName = companies[firmIdx] ? companies[firmIdx].name : "Firm";
+        let custDetails = document.getElementById('manualCustDetails').value;
+        let custName = custDetails.split('\n')[0] || "Cash Customer";
+        let grandTotal = parseFloat(document.getElementById('grandTotal').innerText) || 0;
+        let date = document.getElementById('invDate').value;
+        let quotNo = "QT-" + Math.floor(1000 + Math.random() * 9000);
 
-        // Cart State Logic
-        let cart = [];
-
-        window.addToCart = function(name, price) {
-            cart.push({ name, price });
-            updateCartUI();
-        }
-
-        function updateCartUI() {
-            const cartList = document.getElementById("cart-items");
-            const cartTotal = document.getElementById("cart-total");
-            
-            if (cart.length === 0) {
-                cartList.innerHTML = '<p class="text-gray-400 text-sm">Cart is empty</p>';
-                cartTotal.innerText = "₹0";
-                return;
-            }
-
-            cartList.innerHTML = "";
-            let total = 0;
-            cart.forEach((item, index) => {
-                total += item.price;
-                cartList.innerHTML += `<li class="py-2 flex justify-between text-sm"><span>${item.name}</span><span>₹${item.price}</span></li>`;
+        let items = [];
+        document.querySelectorAll('#itemRows tr').forEach(tr => {
+            items.push({
+                name: tr.querySelector('.row-name').value,
+                barcode: tr.querySelector('.row-barcode').value,
+                hsn: tr.querySelector('.row-hsn').value,
+                qty: tr.querySelector('.row-qty').value,
+                price: tr.querySelector('.row-price').value,
+                gst: tr.querySelector('.row-gst').value,
+                total: tr.querySelector('.row-total').innerText
             });
-            cartTotal.innerText = `₹${total}`;
-        }
+        });
 
-        window.checkout = async function() {
-            if (cart.length === 0) {
-                alert("Cart is empty!");
-                return;
-            }
+        let quotationRecord = {
+            firm: firmName,
+            quotNumber: quotNo,
+            date: date,
+            customer: custName,
+            custDetails: custDetails,
+            grandTotal: grandTotal,
+            items: items
+        };
 
-            const totalAmount = cart.reduce((sum, item) => sum + item.price, 0);
+        quotations.push(quotationRecord);
+        syncToCloud();
+        alert("Quotation saved successfully! (No. " + quotNo + ")");
+        renderQuotationTable();
+    }
+
+    function renderQuotationTable() {
+        let tbody = document.getElementById('quotationTableBody');
+        if(!tbody) return;
+        tbody.innerHTML = '';
+        quotations.forEach((q, idx) => {
+            let tr = document.createElement('tr');
+            let qTotal = (typeof q.grandTotal === 'number') ? q.grandTotal : 0;
+            tr.innerHTML = `
+                <td>${q.firm || ''}</td>
+                <td>${q.quotNumber || ''}</td>
+                <td>${q.date || ''}</td>
+                <td>${q.customer || ''}</td>
+                <td>${qTotal.toFixed(2)}</td>
+                <td>
+                    <button type="button" class="btn-warning print-quot-btn" style="padding:4px 8px; font-size:11px;">🖨️ Print</button>
+                    <button type="button" class="btn-success load-quot-btn" style="padding:4px 8px; font-size:11px;">Load</button> 
+                    <button type="button" class="btn-danger del-quot-btn" style="padding:4px 8px; font-size:11px;">Delete</button>
+                </td>`;
             
-            try {
-                // Save order to Firestore database under 'sales' collection
-                const docRef = await addDoc(collection(db, "sales"), {
-                    items: cart,
-                    total: totalAmount,
-                    timestamp: new Date().toISOString()
-                });
+            tr.querySelector('.print-quot-btn').addEventListener('click', () => printDocumentModal(q, 'QUOTATION', q.quotNumber, q.date));
+            tr.querySelector('.load-quot-btn').addEventListener('click', () => loadQuotationToInvoice(idx));
+            tr.querySelector('.del-quot-btn').addEventListener('click', () => deleteQuotation(idx));
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderHistoryTable() {
+        let tbody = document.getElementById('historyTableBody');
+        if(!tbody) return;
+        tbody.innerHTML = '';
+        invoices.forEach((inv, idx) => {
+            let tr = document.createElement('tr');
+            let totalVal = (typeof inv.grandTotal === 'number') ? inv.grandTotal : 0;
+            tr.innerHTML = `
+                <td>${inv.firm || ''}</td>
+                <td>${inv.invNumber || ''}</td>
+                <td>${inv.date || ''}</td>
+                <td>${inv.customer || ''}</td>
+                <td>${inv.status || ''}</td>
+                <td>${totalVal.toFixed(2)}</td>
+                <td>
+                    <button type="button" class="btn-warning print-inv-btn" style="padding:4px 8px; font-size:11px;">📄 View / Print</button>
+                    <button type="button" class="btn-danger del-inv-btn" style="padding:4px 8px; font-size:11px;">Delete</button>
+                </td>`;
+            
+            tr.querySelector('.print-inv-btn').addEventListener('click', () => printDocumentModal(inv, 'TAX INVOICE', inv.invNumber, inv.date));
+            tr.querySelector('.del-inv-btn').addEventListener('click', () => deleteInvoice(idx));
+            tbody.appendChild(tr);
+        });
+    }
+
+    function printDocumentModal(dataObj, docType, docNo, docDate) {
+        if(!dataObj) return;
+
+        let firmObj = companies.find(c => c.name === dataObj.firm) || companies[0];
+
+        document.getElementById('qPrintDocTitle').innerText = docType;
+        document.getElementById('qPrintFirmName').innerText = dataObj.firm || '';
+        document.getElementById('qPrintFirmDetails').innerHTML = `Address: ${firmObj.address || ''}<br>Phone: ${firmObj.phone || ''} | GSTIN: ${firmObj.gstin || ''} | PAN: DSYPB2229F`;
+        
+        let cDetails = dataObj.custDetails ? dataObj.custDetails.trim() : "";
+        if(!cDetails || cDetails.toLowerCase() === 'cash customer') {
+            document.getElementById('qPrintBillTo').innerHTML = `<b>CASH SALE</b><br>Place of Supply: Jammu & Kashmir`;
+            document.getElementById('qPrintShipTo').innerHTML = `<b>CASH SALE</b><br>Place of Supply: Jammu & Kashmir`;
+        } else {
+            document.getElementById('qPrintBillTo').innerText = cDetails;
+            document.getElementById('qPrintShipTo').innerText = cDetails;
+        }
+
+        document.getElementById('qPrintNoLabel').innerText = docType === 'QUOTATION' ? 'Quotation No:' : 'Invoice No:';
+        document.getElementById('qPrintDateLabel').innerText = docType === 'QUOTATION' ? 'Quotation Date:' : 'Invoice Date:';
+        document.getElementById('qPrintNum').innerText = docNo;
+        document.getElementById('qPrintDate').innerText = docDate;
+        
+        if(docType === 'QUOTATION') {
+            document.getElementById('qPrintExpiryContainer').style.display = 'block';
+            let qDateObj = new Date(docDate || Date.now());
+            qDateObj.setDate(qDateObj.getDate() + 7);
+            document.getElementById('qPrintExpiryDate').innerText = qDateObj.toISOString().split('T')[0];
+        } else {
+            document.getElementById('qPrintExpiryContainer').style.display = 'none';
+        }
+
+        document.getElementById('qPrintSignFirmText').innerText = `For ${dataObj.firm || 'Firm'}`;
+        document.getElementById('qPrintBankDetails').innerHTML = `Name: <b>${firmObj.bankName || 'Jammu and Kashmir Bank'}</b><br>IFSC Code: <b>${firmObj.ifsc || 'N/A'}</b><br>Account No: <b>${firmObj.accNo || 'N/A'}</b>`;
+
+        let itemsBody = document.getElementById('qPrintItemsBody');
+        itemsBody.innerHTML = '';
+        
+        let taxSummaryMap = {};
+        let totalItemsQty = 0;
+        let totalTaxableVal = 0;
+        let grandTotalVal = 0;
+
+        if(dataObj.items && dataObj.items.length > 0) {
+            dataObj.items.forEach((item, i) => {
+                let qty = parseFloat(item.qty) || 1;
+                let price = parseFloat(item.price) || 0;
+                let gstRate = parseFloat(item.gst) || 18;
+                let totalAmt = parseFloat(item.total) || (qty * price);
                 
-                alert("Sale completed and securely synced to Cloud! ID: " + docRef.id);
-                cart = [];
-                updateCartUI();
-            } catch (e) {
-                console.error("Error adding document: ", e);
-                alert("Failed to sync sale to cloud. Check connection.");
+                totalItemsQty += qty;
+                grandTotalVal += totalAmt;
+
+                let taxableVal = totalAmt / (1 + (gstRate / 100));
+                let taxVal = totalAmt - taxableVal;
+                totalTaxableVal += taxableVal;
+
+                let hsn = item.hsn || '9403';
+                if(!taxSummaryMap[hsn]) {
+                    taxSummaryMap[hsn] = { taxable: 0, taxAmt: 0 };
+                }
+                taxSummaryMap[hsn].taxable += taxableVal;
+                taxSummaryMap[hsn].taxAmt += taxVal;
+
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding:8px; border:1px solid #cbd5e0; text-align:center;">${i + 1}</td>
+                    <td class="left" style="padding:8px; border:1px solid #cbd5e0; font-weight:600; color:#2d3748;">${item.name || ''}</td>
+                    <td style="padding:8px; border:1px solid #cbd5e0; text-align:center;">${qty} PCS</td>
+                    <td style="padding:8px; border:1px solid #cbd5e0; text-align:right;">${ taxableVal.toFixed(2) }</td>
+                    <td style="padding:8px; border:1px solid #cbd5e0; text-align:center;">${taxVal.toFixed(2)} (${gstRate}%)</td>
+                    <td class="right" style="padding:8px; border:1px solid #cbd5e0; text-align:right; font-weight:bold; color:#1a365d;">${totalAmt.toFixed(2)}</td>
+                `;
+                itemsBody.appendChild(tr);
+            });
+        }
+
+        document.getElementById('qPrintTableTotalQty').innerText = totalItemsQty;
+        document.getElementById('qPrintTableTotalAmt').innerText = "₹" + grandTotalVal.toFixed(2);
+
+        let taxSummaryBody = document.getElementById('qPrintTaxSummary');
+        taxSummaryBody.innerHTML = '';
+        for(let hsn in taxSummaryMap) {
+            let t = taxSummaryMap[hsn];
+            let cgst = t.taxAmt / 2;
+            let sgst = t.taxAmt / 2;
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="padding:6px; border:1px solid #cbd5e0;">${hsn}</td>
+                <td style="padding:6px; border:1px solid #cbd5e0; text-align:right;">${t.taxable.toFixed(2)}</td>
+                <td style="padding:6px; border:1px solid #cbd5e0; text-align:center;">9%</td>
+                <td style="padding:6px; border:1px solid #cbd5e0; text-align:right;">${cgst.toFixed(2)}</td>
+                <td style="padding:6px; border:1px solid #cbd5e0; text-align:center;">9%</td>
+                <td style="padding:6px; border:1px solid #cbd5e0; text-align:right;">${sgst.toFixed(2)}</td>
+                <td style="padding:6px; border:1px solid #cbd5e0; text-align:right; font-weight:bold;">${t.taxAmt.toFixed(2)}</td>
+            `;
+            taxSummaryBody.appendChild(tr);
+        }
+
+        document.getElementById('qPrintAmountWords').innerText = convertNumberToWords(Math.round(grandTotalVal));
+
+        document.getElementById('quotationPrintModal').style.display = 'flex';
+    }
+
+    function printQuotationPreview(idx) {
+        let q = quotations[idx];
+        if(!q) return;
+        printDocumentModal(q, 'QUOTATION', q.quotNumber, q.date);
+    }
+
+    function loadQuotationToInvoice(idx) {
+        let q = quotations[idx];
+        if(!q) return;
+        document.getElementById('manualCustDetails').value = q.custDetails || '';
+        let tbody = document.getElementById('itemRows');
+        tbody.innerHTML = '';
+        if(q.items && q.items.length > 0) {
+            q.items.forEach(item => {
+                addItemRowWithProduct({
+                    name: item.name,
+                    barcode: item.barcode,
+                    hsn: item.hsn,
+                    price: parseFloat(item.price) || 0,
+                    gst: parseFloat(item.gst) || 18,
+                    qty: parseFloat(item.qty) || 1
+                });
+            });
+        } else {
+            addItemRow();
+        }
+        calculateTotals();
+        switchTab('invoice', { currentTarget: document.querySelector('.nav-tabs button') });
+        alert("Quotation loaded into New Bill screen!");
+    }
+
+    function deleteQuotation(idx) {
+        quotations.splice(idx, 1);
+        syncToCloud();
+        renderQuotationTable();
+    }
+
+    function resetInvoiceForm() {
+        document.getElementById('itemRows').innerHTML = '';
+        addItemRow();
+        document.getElementById('amtReceived').value = 0;
+        calculateTotals();
+        setNextInvoiceNumber();
+    }
+
+    function openThermalReceipt() {
+        let firmIdx = document.getElementById('activeFirmSelect').value;
+        let firm = companies[firmIdx] || {};
+        let custDetails = document.getElementById('manualCustDetails').value;
+        let grandTotal = document.getElementById('grandTotal').innerText;
+        let invNo = document.getElementById('invNumber').value;
+        let date = document.getElementById('invDate').value;
+
+        let receiptText = `================================\n`;
+        receiptText += `      ${firm.name || 'POS RECEIPT'}\n`;
+        receiptText += `  ${firm.address || ''}\n`;
+        receiptText += `  Ph: ${firm.phone || ''} | GSTIN: ${firm.gstin || ''}\n`;
+        receiptText += `================================\n`;
+        receiptText += `Inv No: ${invNo} | Date: ${date}\n`;
+        receiptText += `--------------------------------\n`;
+        receiptText += `Bill To:\n${custDetails}\n`;
+        receiptText += `--------------------------------\n`;
+        receiptText += `Item           Qty   Price   Total\n`;
+        receiptText += `--------------------------------\n`;
+
+        document.querySelectorAll('#itemRows tr').forEach(tr => {
+            let name = (tr.querySelector('.row-name').value || '').substring(0, 14).padEnd(14, ' ');
+            let qty = (tr.querySelector('.row-qty').value || '').padStart(4, ' ');
+            let price = (tr.querySelector('.row-price').value || '').padStart(7, ' ');
+            let tot = (tr.querySelector('.row-total').innerText || '').padStart(7, ' ');
+            receiptText += `${name} ${qty} ${price} ${tot}\n`;
+        });
+
+        receiptText += `--------------------------------\n`;
+        receiptText += `GRAND TOTAL: Rs. ${grandTotal}\n`;
+        receiptText += `================================\n`;
+        receiptText += `       Thank You For Visit!      \n`;
+        receiptText += `================================\n`;
+
+        document.getElementById('thermalContent').innerText = receiptText;
+        document.getElementById('thermalReceiptModal').style.display = 'flex';
+    }
+
+    function downloadOrSharePDF() {
+        window.print();
+    }
+
+    function shareOnWhatsApp() {
+        sendBillToWhatsApp();
+    }
+
+    function shareViaEmail() {
+        let invNo = document.getElementById('invNumber').value;
+        let grandTotal = document.getElementById('grandTotal').innerText;
+        let subject = encodeURIComponent(`Tax Invoice #${invNo}`);
+        let body = encodeURIComponent(`Please find your invoice total amounting to Rs. ${grandTotal}.`);
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    }
+
+    function renderCompanyTable() {
+        let tbody = document.getElementById('companyTableBody');
+        if(!tbody) return;
+        tbody.innerHTML = '';
+        companies.forEach((c, idx) => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `<td>${c.name}</td><td>${c.gstin}</td><td><button type="button" class="btn-danger del-comp-btn">Delete</button></td>`;
+            tr.querySelector('.del-comp-btn').addEventListener('click', () => deleteCompany(idx));
+            tbody.appendChild(tr);
+        });
+    }
+
+    function saveBusinessProfile() {
+        let name = document.getElementById('busName').value.trim();
+        if(!name) { alert("Enter Firm Name"); return; }
+        companies.push({
+            name: name,
+            prefix: document.getElementById('busPrefix').value.trim(),
+            address: document.getElementById('busAddress').value.trim(),
+            phone: document.getElementById('busPhone').value.trim(),
+            gstin: document.getElementById('busGstin').value.trim()
+        });
+        syncToCloud();
+        renderCompanyTable();
+        populateFirmDropdowns();
+        alert("Firm saved successfully!");
+    }
+
+    function deleteCompany(idx) {
+        companies.splice(idx, 1);
+        syncToCloud();
+        renderCompanyTable();
+        populateFirmDropdowns();
+    }
+
+    function renderCustomerTable() {
+        let tbody = document.getElementById('customerTableBody');
+        if(!tbody) return;
+        tbody.innerHTML = '';
+        customers.forEach((cust, idx) => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `<td>${cust.name}</td><td>${cust.phone}</td><td>${cust.gstin}<br>${cust.address}</td><td>0.00</td><td><button type="button" class="btn-danger del-cust-btn">Delete</button></td>`;
+            tr.querySelector('.del-cust-btn').addEventListener('click', () => deleteCustomer(idx));
+            tbody.appendChild(tr);
+        });
+    }
+
+    function saveCustomer() {
+        let name = document.getElementById('newCustName').value.trim();
+        if(!name) { alert("Enter Customer Name"); return; }
+        customers.push({
+            name: name,
+            address: document.getElementById('newCustAddress').value.trim(),
+            phone: document.getElementById('newCustPhone').value.trim(),
+            gstin: document.getElementById('newCustGstin').value.trim(),
+            state: "01-Jammu & Kashmir"
+        });
+        syncToCloud();
+        renderCustomerTable();
+        populateCustomerDropdown();
+        alert("Customer saved successfully!");
+    }
+
+    function deleteCustomer(idx) {
+        customers.splice(idx, 1);
+        syncToCloud();
+        renderCustomerTable();
+        populateCustomerDropdown();
+    }
+
+    function renderInventoryTable() {
+        let tbody = document.getElementById('inventoryTableBody');
+        if(!tbody) return;
+        tbody.innerHTML = '';
+        inventory.forEach((prod, idx) => {
+            let tr = document.createElement('tr');
+            if(prod.stock <= 2) tr.classList.add('low-stock');
+            tr.innerHTML = `<td>${prod.name}</td><td>${prod.barcode}</td><td>${prod.hsn}</td><td>${prod.price}</td><td>${prod.gst}%</td><td>${prod.stock}</td><td><button type="button" class="btn-danger del-prod-btn">Delete</button></td>`;
+            tr.querySelector('.del-prod-btn').addEventListener('click', () => deleteProduct(idx));
+            tbody.appendChild(tr);
+        });
+        updateInventoryDatalist();
+    }
+
+    function saveProduct() {
+        let name = document.getElementById('prodName').value.trim();
+        if(!name) { alert("Enter Product Name"); return; }
+        inventory.push({
+            name: name,
+            barcode: document.getElementById('prodBarcode').value.trim(),
+            hsn: document.getElementById('prodHsn').value.trim(),
+            price: parseFloat(document.getElementById('prodPrice').value) || 0,
+            gst: parseFloat(document.getElementById('prodGst').value) || 18,
+            stock: parseInt(document.getElementById('prodStock').value) || 0
+        });
+        syncToCloud();
+        renderInventoryTable();
+        updateInventoryDatalist();
+        alert("Product saved successfully!");
+    }
+
+    function deleteProduct(idx) {
+        inventory.splice(idx, 1);
+        syncToCloud();
+        renderInventoryTable();
+        updateInventoryDatalist();
+    }
+
+    function deleteInvoice(idx) {
+        invoices.splice(idx, 1);
+        syncToCloud();
+        renderHistoryTable();
+        updateReports();
+    }
+
+    function renderLedgerTable() {
+        let tbody = document.getElementById('ledgerTableBody');
+        if(!tbody) return;
+        tbody.innerHTML = '';
+        invoices.filter(i => i.balance > 0).forEach((inv, idx) => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `<td>${inv.customer}<br><small>${inv.custDetails}</small></td><td>${inv.invNumber}</td><td style="color:red; font-weight:bold;">${inv.balance.toFixed(2)}</td><td><button type="button" class="btn-success mark-paid-btn">Mark Paid</button></td>`;
+            tr.querySelector('.mark-paid-btn').addEventListener('click', () => markInvoicePaid(inv.invNumber));
+            tbody.appendChild(tr);
+        });
+    }
+
+    function markInvoicePaid(invNo) {
+        let inv = invoices.find(i => i.invNumber === invNo);
+        if(inv) {
+            inv.received = inv.grandTotal;
+            inv.balance = 0;
+            inv.status = 'Paid';
+            syncToCloud();
+            renderLedgerTable();
+            updateReports();
+        }
+    }
+
+    function updateReports() {
+        let totalSales = 0;
+        let totalReceived = 0;
+        let totalPending = 0;
+        let dayBookBody = document.getElementById('dayBookTableBody');
+        if(!dayBookBody) return;
+        dayBookBody.innerHTML = '';
+
+        invoices.forEach(inv => {
+            let gTotal = (typeof inv.grandTotal === 'number') ? inv.grandTotal : 0;
+            let rec = (typeof inv.received === 'number') ? inv.received : 0;
+            let bal = (typeof inv.balance === 'number') ? inv.balance : 0;
+
+            totalSales += gTotal;
+            totalReceived += rec;
+            totalPending += bal;
+
+            let tr = document.createElement('tr');
+            tr.innerHTML = `<td>${inv.date || ''}</td><td>${inv.invNumber || ''}</td><td>${inv.customer || ''}</td><td>${gTotal.toFixed(2)}</td><td>${inv.status || ''}</td>`;
+            dayBookBody.appendChild(tr);
+        });
+
+        document.getElementById('repTotalSales').innerText = `₹${totalSales.toFixed(2)}`;
+        document.getElementById('repTotalReceived').innerText = `₹${totalReceived.toFixed(2)}`;
+        document.getElementById('repTotalPending').innerText = `₹${totalPending.toFixed(2)}`;
+
+        let gstrBody = document.getElementById('gstr1TableBody');
+        if(!gstrBody) return;
+        gstrBody.innerHTML = '';
+        let dummyTaxable = totalSales / 1.18;
+        let dummyCgst = (totalSales - dummyTaxable) / 2;
+        let dummySgst = dummyCgst;
+        
+        if(invoices.length > 0) {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `<td>9403</td><td>${dummyTaxable.toFixed(2)}</td><td>${dummyCgst.toFixed(2)}</td><td>${dummySgst.toFixed(2)}</td><td>${(dummyCgst+dummySgst).toFixed(2)}</td>`;
+            gstrBody.appendChild(tr);
+        }
+    }
+</script>
+<!-- YEH WAHI WHATSAPP WALA CODE HAI JO AAPKO APNI FILE KE ANTT MEIN DALNA HAI -->
+<script>
+async function sendBillToWhatsApp() {
+    alert("Test: Button dab gaya hai!");
+
+    let rawPhone = "";
+
+    const recipientInput = document.getElementById("wa-recipient");
+    if (recipientInput && recipientInput.value.trim() !== "") {
+        rawPhone = recipientInput.value.trim();
+    } 
+    
+    if (!rawPhone) {
+        const allInputs = document.querySelectorAll('input[type="text"], input[type="tel"], input[type="number"]');
+        for (let input of allInputs) {
+            let val = input.value ? input.value.trim() : "";
+            let cleanVal = val.replace(/\D/g, '');
+            if (cleanVal.length >= 10) {
+                rawPhone = val;
+                break;
             }
         }
-    </script>
-</body>
-</html>
+    }
+
+    if (!rawPhone) {
+        alert("Customer ka mobile number nahi mila! Kripya WhatsApp wale box mein number likhein.");
+        return;
+    }
+
+    let recipientPhone = rawPhone.replace(/\D/g, '');
+    if (recipientPhone.length === 10) {
+        recipientPhone = "91" + recipientPhone;
+    }
+
+    const accessToken = "EAAYnwZAsX1ZCUBShY31GsAMM9HoQuwgnoiaYJPBxGuI2gEEHlVMrXk3mQnoyj0c59C7lPc2RxX07iWsdQSYPn6Sd5EitJGOSdCd1dneO6orKL6gaF5Pp2MkIscLHEGyAbJXC2kgdfjK10lyDkpxDfPD8cAaFEyFInq2K9aTYLI2i3OavluZBfP30kKxk7rtAO7LBzuJnGVrZCeY4V1IxKkIkQfuPZBEl8uz46ckQK9ZAHlaUgJeCMKj0Vv4F5S9hXCP1Lt9EsvQyDLZCjllQwszGAZDZD";
+    const phoneNumberID = "1355541827643665";
+
+    const invoiceNum = typeof invoiceNumber !== 'undefined' ? invoiceNumber : (document.getElementById('invoiceNumber')?.value || 'INV-001');
+    const totalAmount = typeof grandTotal !== 'undefined' ? grandTotal : (document.getElementById('grandTotal')?.value || '0');
+
+    const url = `https://graph.facebook.com/v18.0/${phoneNumberID}/messages`;
+
+    const payload = {
+        messaging_product: "whatsapp",
+        to: recipientPhone,
+        type: "text",
+        text: {
+            body: `Hello! Your invoice (${invoiceNum}) amounting to ₹${totalAmount} from billbook.space has been generated successfully.`
+        }
+    };
+
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ` + accessToken,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            alert("Success! Invoice WhatsApp par bhej di gayi hai.");
+        } else {
+            alert("Error: " + (result.error?.message || "Message nahi ja saka."));
+        }
+    } catch (error) {
+        alert("Network Error: " + error.message);
+    }
+}
+</script>
 </body>
 </html>
